@@ -458,30 +458,33 @@ https://civicdb.org/
 ```bash
 biomedical-entity-resolution-assistant/
 │
-├── README.md
-├── requirements.txt
-├── Dockerfile
-├── .env.example
-│
 ├── data/
 │   ├── raw/
 │   ├── processed/
-│   └── ontology_mappings/
+│   ├── embeddings/
+│   └── ontology_cache/
+│
+├── notebooks/
+│
+├── configs/
+│   ├── settings.yaml
+│   └── models.yaml
 │
 ├── src/
 │   ├── ingestion/
 │   ├── preprocessing/
-│   ├── entity_detection/
+│   ├── embeddings/
 │   ├── retrieval/
-│   ├── matching/
-│   ├── scoring/
-│   ├── api/
+│   ├── evaluation/
 │   └── utils/
 │
 ├── tests/
-├── docs/
-├── notebooks/
-└── ui/
+│
+├── main.py
+│
+├── pyproject.toml
+│
+└── .env
 ```
 
 ---
@@ -515,7 +518,7 @@ venv\Scripts\activate
 ## Install Dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ---
@@ -525,7 +528,7 @@ pip install -r requirements.txt
 ## Run API
 
 ```bash
-uvicorn src.api.main:app --reload
+uvicorn main:app --reload
 ```
 
 API available at:
@@ -539,7 +542,7 @@ http://localhost:8000
 ## Run UI
 
 ```bash
-streamlit run ui/app.py
+streamlit run src/utils/streamlit_app.py
 ```
 
 ---

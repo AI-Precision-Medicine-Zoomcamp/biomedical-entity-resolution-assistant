@@ -1,7 +1,7 @@
 .PHONY: setup test run up down
 
 setup:
-	pip install -r requirements.txt
+	pip install -e ".[dev]"
 
 test:
 	pytest tests/
