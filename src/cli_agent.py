@@ -6,10 +6,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from src.agent.agent import BiomedicalAgent
+from src.agent.pydantic_ai_agent import PydanticAIBiomedicalAgent
 
 def main():
-    agent = BiomedicalAgent()
+    agent = PydanticAIBiomedicalAgent()
     session_id = "cli_demo_session"
     
     print("=" * 80)

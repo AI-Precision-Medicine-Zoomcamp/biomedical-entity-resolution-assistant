@@ -182,14 +182,14 @@ def resolve_rag_endpoint(request: RAGRequest):
     rag = get_rag_pipeline()
     return rag.run_pipeline(request.text)
 
-from src.agent.agent import BiomedicalAgent
+from src.agent.pydantic_ai_agent import PydanticAIBiomedicalAgent
 
 agent_instance = None
 
 def get_agent():
     global agent_instance
     if agent_instance is None:
-        agent_instance = BiomedicalAgent()
+        agent_instance = PydanticAIBiomedicalAgent()
     return agent_instance
 
 class AgentRequest(BaseModel):
