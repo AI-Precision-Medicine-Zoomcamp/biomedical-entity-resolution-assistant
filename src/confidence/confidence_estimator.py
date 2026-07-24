@@ -16,7 +16,8 @@ class ConfidenceEstimator:
 
     def estimate_confidence(self, mention: str, candidate: dict) -> float:
         """
-        Estimates the resolution confidence.
+        Estimates the resolution confidence based on the formula:
+        confidence = 0.6 * vector_similarity + 0.3 * lexical_similarity + 0.1 * alias_bonus
         
         Args:
             mention (str): Extracted mention.
@@ -28,43 +29,23 @@ class ConfidenceEstimator:
         if not candidate:
             return 0.0
 
-        mention_clean = mention.strip().lower()
-        canonical_clean = candidate["canonical_name"].strip().lower()
+        vector_sim = candidate.get("vector_similarity", 0.0)
+        lexical_sim = candidate.get("lexical_similarity", 0.0)
+        alias_bonus = candidate.get("alias_bonus", 0.0)
         
-        # 1. Base score derived from matching type
-        retrieval_method = candidate.get("retrieval_method", "unknown")
-        
-        # Start with a base score
-        if "id_match" in retrieval_method:
-            base_score = 0.98
-        elif "lexical" in retrieval_method:
-            base_score = 0.90
-        elif "vector" in retrieval_method:
-            # Vector-only similarity starts slightly lower since it is semantic/approximate
-            base_score = 0.75
-        else:
-            base_score = 0.70
+        # If these properties are not in the candidate (e.g. from fallbacks), compute them on the fly
+        if "vector_similarity" not in candidate:
+            mention_clean = mention.strip().lower()
+            canonical_clean = candidate["canonical_name"].strip().lower()
+            exact_match = (mention_clean == canonical_clean)
+            if not exact_match and candidate.get("synonyms"):
+                syns = [s.strip().lower() for s in candidate["synonyms"].split("|")]
+                if mention_clean in syns:
+                    exact_match = True
+            
+            alias_bonus = 1.0 if exact_match else 0.0
+            vector_sim = 1.0 if exact_match else 0.8
+            lexical_sim = 1.0 if exact_match else 0.8
 
-        # 2. Check for exact name mapping
-        exact_match = (mention_clean == canonical_clean)
-        if not exact_match and candidate.get("synonyms"):
-            syns = [s.strip().lower() for s in candidate["synonyms"].split("|")]
-            if mention_clean in syns:
-                exact_match = True
-
-        # Apply exact match bonus
-        if exact_match:
-            base_score += 0.10
-        else:
-            # Penalize slightly if there is no exact string match anywhere
-            base_score -= 0.10
-
-        # 3. Consider lexical similarity
-        lex_sim = candidate.get("lexical_similarity", 0.0)
-        if lex_sim > 0:
-            # Adjust score based on lexical similarity
-            base_score = (base_score * 0.7) + (lex_sim * 0.3)
-
-        # 4. Final bounds check
-        confidence = min(max(base_score, 0.0), 1.0)
-        return round(confidence, 2)
+        confidence = (0.6 * vector_sim) + (0.3 * lexical_sim) + (0.1 * alias_bonus)
+        return round(min(max(confidence, 0.0), 1.0), 2)

@@ -41,6 +41,19 @@ class BiomedicalNER:
     def __init__(self):
         self.lookup_path = PROJECT_ROOT / "data" / "processed" / "normalized_lookup.parquet"
         self._aliases_set = None
+        self._nlp = None
+
+    @property
+    def nlp(self):
+        if self._nlp is None:
+            import spacy
+            import warnings
+            # Suppress user/future warnings from older model configuration
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self._nlp = spacy.load("en_core_sci_sm")
+            print("[NER] Loaded SciSpacy model 'en_core_sci_sm'.")
+        return self._nlp
 
     @property
     def aliases_set(self) -> set:
@@ -84,7 +97,26 @@ class BiomedicalNER:
                 "category": "Acronym"
             })
 
-        # 2. Extract N-grams that match the Dictionary
+        # 2. Extract using SciSpacy model
+        try:
+            doc = self.nlp(text)
+            for ent in doc.ents:
+                ent_text = ent.text.strip()
+                if not ent_text:
+                    continue
+                # Skip common stopwords if the text in the source document is completely lowercase
+                if ent_text.islower() and ent_text in STOPWORDS:
+                    continue
+                extracted.append({
+                    "mention": ent_text,
+                    "start_char": ent.start_char,
+                    "end_char": ent.end_char,
+                    "category": "SciSpacy"
+                })
+        except Exception as e:
+            print(f"[NER] Warning: Failed to extract with SciSpacy: {e}")
+
+        # 3. Extract N-grams that match the Dictionary
         # We check n-grams of length 1 to 5 words
         # To find start/end characters for n-grams, we tokenize and track start/end indices of each word.
         tokens = []
