@@ -91,7 +91,7 @@ def test_agent_endpoint():
     assert response1.status_code == 200
     data1 = response1.json()
     assert data1["session_id"] == "test_api_session"
-    assert data1["intent"] == "EXPLAIN_ENTITY"
+    assert data1["intent"] == "SIMPLE_RESOLUTION"
     assert len(data1["resolved_entities"]) == 1
     assert "Myocardial Infarction" in data1["report"]
 

@@ -183,14 +183,24 @@ def resolve_rag_endpoint(request: RAGRequest):
     return rag.run_pipeline(request.text)
 
 from src.agent.pydantic_ai_agent import PydanticAIBiomedicalAgent
+from src.agent.router import WorkflowRouter
+from src.tools import generate_report
+import uuid
 
 agent_instance = None
+router_instance = None
 
 def get_agent():
     global agent_instance
     if agent_instance is None:
         agent_instance = PydanticAIBiomedicalAgent()
     return agent_instance
+
+def get_router():
+    global router_instance
+    if router_instance is None:
+        router_instance = WorkflowRouter()
+    return router_instance
 
 class AgentRequest(BaseModel):
     query: str
@@ -207,8 +217,99 @@ class AgentResponse(BaseModel):
 
 @app.post("/agent/query", response_model=AgentResponse)
 def query_agent_endpoint(request: AgentRequest):
-    agent = get_agent()
-    return agent.process_query(query=request.query, session_id=request.session_id)
+    router = get_router()
+    route = router.route(request.query)
+    
+    if route == "SIMPLE_RESOLUTION":
+        # Route to fast deterministic resolver pipeline (Module 2, no LLM)
+        resolver = get_resolver()
+        resolved_entities = resolver.resolve_text(request.query)
+        
+        # Convert entities to dict representation for report generation
+        entities_dict = []
+        for ent in resolved_entities:
+            if isinstance(ent, dict):
+                entities_dict.append({
+                    "mention": ent.get("mention", ""),
+                    "canonical_name": ent.get("canonical_name", ent.get("canonical", "")),
+                    "canonical": ent.get("canonical", ""),
+                    "entity_type": ent.get("entity_type", ""),
+                    "identifier": ent.get("identifier", ""),
+                    "concept_id": ent.get("concept_id", ""),
+                    "ontology": ent.get("ontology", ""),
+                    "confidence": ent.get("confidence", 0.0),
+                    "status": ent.get("status", "resolved"),
+                    "reason": ent.get("reason", []),
+                    "explanation": ent.get("explanation", "")
+                })
+            else:
+                entities_dict.append({
+                    "mention": getattr(ent, "mention", ""),
+                    "canonical_name": getattr(ent, "canonical_name", getattr(ent, "canonical", "")),
+                    "canonical": getattr(ent, "canonical", ""),
+                    "entity_type": getattr(ent, "entity_type", ""),
+                    "identifier": getattr(ent, "identifier", ""),
+                    "concept_id": getattr(ent, "concept_id", ""),
+                    "ontology": getattr(ent, "ontology", ""),
+                    "confidence": getattr(ent, "confidence", 0.0),
+                    "status": getattr(ent, "status", "resolved"),
+                    "reason": getattr(ent, "reason", []),
+                    "explanation": getattr(ent, "explanation", "")
+                })
+            
+        report = generate_report(request.query, entities_dict)
+        session_id = request.session_id or str(uuid.uuid4())
+        
+        # Log to agent memory
+        agent = get_agent()
+        agent.history_manager.add_turn(
+            session_id=session_id,
+            user_content=request.query,
+            assistant_content=report,
+            resolved_entities=entities_dict
+        )
+        
+        return AgentResponse(
+            session_id=session_id,
+            original_query=request.query,
+            enriched_query=request.query,
+            intent="SIMPLE_RESOLUTION",
+            resolved_entities=resolved_entities,
+            report=report,
+            system_prompt="Deterministic Module 2 Resolver Pipeline (No LLM)"
+        )
+    else:
+        # Route to complex agent loop
+        agent = get_agent()
+        res = agent.process_query(query=request.query, session_id=request.session_id)
+        
+        resolved_items = []
+        for ent in res["resolved_entities"]:
+            resolved_items.append(TextResolutionItem(
+                mention=ent.get("mention", ""),
+                start_char=ent.get("start_char", 0),
+                end_char=ent.get("end_char", 0),
+                canonical_name=ent.get("canonical_name", ent.get("canonical", "")),
+                canonical=ent.get("canonical", ""),
+                entity_type=ent.get("entity_type", ""),
+                identifier=ent.get("identifier", ""),
+                concept_id=ent.get("concept_id", ""),
+                ontology=ent.get("ontology", ""),
+                confidence=ent.get("confidence", 0.0),
+                status=ent.get("status", "resolved"),
+                reason=ent.get("reason", []),
+                explanation=ent.get("explanation", "")
+            ))
+            
+        return AgentResponse(
+            session_id=res["session_id"],
+            original_query=res["original_query"],
+            enriched_query=res["enriched_query"],
+            intent=res["intent"],
+            resolved_entities=resolved_items,
+            report=res["report"],
+            system_prompt=res["system_prompt"]
+        )
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
