@@ -68,3 +68,17 @@ def test_resolve_text_endpoint():
     assert tp53_item["concept_id"] == "11998"
     assert tp53_item["status"] in ["resolved", "needs_review", "rejected"]
     assert isinstance(tp53_item["reason"], list)
+
+def test_resolve_rag_endpoint():
+    response = client.post("/resolve-rag", json={
+        "text": "Patients diagnosed with MI were given Tylenol."
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["query"] == "Patients diagnosed with MI were given Tylenol."
+    assert len(data["resolved_entities"]) == 2
+    assert "Myocardial Infarction" in data["literature"]
+    assert "Acetaminophen" in data["literature"]
+    assert len(data["merged_context"]) > 0
+    assert len(data["report"]) > 0
+    assert "Biomedical Analysis & Clinical Report" in data["report"]

@@ -152,10 +152,35 @@ class TextResolutionItem(BaseModel):
     reason: List[str]
     explanation: str
 
+from src.entity_resolution.multi_source_rag import MultiSourceRAG
+
+rag_pipeline = None
+
+def get_rag_pipeline():
+    global rag_pipeline
+    if rag_pipeline is None:
+        rag_pipeline = MultiSourceRAG()
+    return rag_pipeline
+
+class RAGRequest(BaseModel):
+    text: str
+
+class RAGResponse(BaseModel):
+    query: str
+    resolved_entities: List[TextResolutionItem]
+    literature: dict
+    merged_context: str
+    report: str
+
 @app.post("/resolve-text", response_model=List[TextResolutionItem])
 def resolve_text_endpoint(request: TextResolutionRequest):
     resolver = get_resolver()
     return resolver.resolve_text(request.text)
+
+@app.post("/resolve-rag", response_model=RAGResponse)
+def resolve_rag_endpoint(request: RAGRequest):
+    rag = get_rag_pipeline()
+    return rag.run_pipeline(request.text)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
