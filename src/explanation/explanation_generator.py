@@ -82,3 +82,56 @@ class ExplanationGenerator:
             f"via a hybrid lexical-semantic matching process. The term '{mention}' shares strong lexical and semantic "
             f"similarity with this concept in the {source} database."
         )
+
+    def generate_reasons(self, mention: str, candidate: dict, confidence: float) -> list[str]:
+        """
+        Generates structured explanation reasons as a list of strings.
+        """
+        reasons = []
+        if not candidate:
+            return ["No matching candidate found in database"]
+
+        mention_clean = mention.strip().lower()
+        canonical_clean = candidate["canonical_name"].strip().lower()
+        retrieval_method = candidate.get("retrieval_method", "unknown")
+
+        # 1. Check direct matches
+        if "id_match" in retrieval_method:
+            reasons.append("Matched official identifier/code")
+        
+        if mention_clean == canonical_clean:
+            reasons.append("Matched canonical label")
+            
+        synonyms = candidate.get("synonyms", "")
+        if synonyms:
+            syn_list = [s.strip().lower() for s in synonyms.split("|")]
+            if mention_clean in syn_list:
+                reasons.append("Matched ontology synonym")
+
+        # 2. Check semantic similarity
+        vector_sim = candidate.get("vector_similarity", 0.0)
+        # Handle fallback / exact match cases that might not have vector_similarity explicitly computed
+        if "vector_similarity" not in candidate:
+            exact_match = (mention_clean == canonical_clean) or (synonyms and mention_clean in [s.strip().lower() for s in synonyms.split("|")])
+            vector_sim = 1.0 if exact_match else 0.8
+
+        if vector_sim >= 0.85:
+            reasons.append("Highest semantic similarity")
+        elif vector_sim >= 0.70:
+            reasons.append("High semantic similarity (SapBERT)")
+
+        # 3. Check lexical similarity
+        lexical_sim = candidate.get("lexical_similarity", 0.0)
+        if lexical_sim >= 0.85:
+            reasons.append("High lexical similarity")
+
+        # 4. Competing concept checks
+        # If confidence is high, it typically means there is no close second competitor
+        if confidence >= 0.85:
+            reasons.append("No competing concepts")
+
+        # Fallback if list is empty
+        if not reasons:
+            reasons.append("Matched via hybrid lexical-semantic retrieval")
+
+        return reasons

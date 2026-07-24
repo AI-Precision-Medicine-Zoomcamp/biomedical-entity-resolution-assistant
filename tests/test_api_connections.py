@@ -42,17 +42,29 @@ def test_resolve_text_endpoint():
     # Verify MI resolved correctly
     mi_item = [item for item in data if item["mention"] == "MI"][0]
     assert mi_item["canonical_name"] == "Myocardial Infarction"
+    assert mi_item["canonical"] == "Myocardial Infarction"
     assert mi_item["entity_type"] == "Disease"
     assert mi_item["identifier"] == "MESH:D009203"
+    assert mi_item["concept_id"] == "D009203"
+    assert mi_item["status"] in ["resolved", "needs_review", "rejected"]
+    assert isinstance(mi_item["reason"], list)
     
     # Verify Tylenol resolved correctly
     tylenol_item = [item for item in data if item["mention"] == "Tylenol"][0]
     assert tylenol_item["canonical_name"] == "Acetaminophen"
+    assert tylenol_item["canonical"] == "Acetaminophen"
     assert tylenol_item["entity_type"] == "Medication"
     assert tylenol_item["identifier"] == "RXCUI:161"
+    assert tylenol_item["concept_id"] == "161"
+    assert tylenol_item["status"] in ["resolved", "needs_review", "rejected"]
+    assert isinstance(tylenol_item["reason"], list)
     
     # Verify TP53 resolved correctly
     tp53_item = [item for item in data if item["mention"] == "TP53"][0]
     assert tp53_item["canonical_name"] == "Tumor Protein P53"
+    assert tp53_item["canonical"] == "Tumor Protein P53"
     assert tp53_item["entity_type"] == "Gene"
     assert tp53_item["identifier"] == "HGNC:11998"
+    assert tp53_item["concept_id"] == "11998"
+    assert tp53_item["status"] in ["resolved", "needs_review", "rejected"]
+    assert isinstance(tp53_item["reason"], list)

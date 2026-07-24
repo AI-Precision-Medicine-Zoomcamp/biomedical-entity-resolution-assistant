@@ -145,16 +145,32 @@ class BiomedicalEntityResolverPipeline:
             if best_candidate:
                 confidence = self.confidence_estimator.estimate_confidence(mention, best_candidate)
                 explanation = self.explanation_generator.generate_explanation(mention, best_candidate, confidence)
+                reasons = self.explanation_generator.generate_reasons(mention, best_candidate, confidence)
                 
+                # Human review thresholds
+                if confidence > 0.90:
+                    status = "resolved"
+                elif confidence >= 0.60:
+                    status = "needs_review"
+                else:
+                    status = "rejected"
+                    
+                ident = best_candidate["identifier"]
+                concept_id = ident.split(":")[-1] if ":" in ident else ident
+
                 resolved_entities.append({
                     "mention": mention,
                     "start_char": start_char,
                     "end_char": end_char,
                     "canonical_name": best_candidate["canonical_name"],
+                    "canonical": best_candidate["canonical_name"],
                     "entity_type": best_candidate["entity_type"],
-                    "identifier": best_candidate["identifier"],
+                    "identifier": ident,
+                    "concept_id": concept_id,
                     "ontology": best_candidate["source"],
                     "confidence": confidence,
+                    "status": status,
+                    "reason": reasons,
                     "explanation": explanation
                 })
                 

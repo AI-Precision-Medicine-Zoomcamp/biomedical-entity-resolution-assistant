@@ -142,10 +142,14 @@ class TextResolutionItem(BaseModel):
     start_char: int
     end_char: int
     canonical_name: str
+    canonical: str
     entity_type: str
     identifier: str
+    concept_id: str
     ontology: str
     confidence: float
+    status: str
+    reason: List[str]
     explanation: str
 
 @app.post("/resolve-text", response_model=List[TextResolutionItem])
