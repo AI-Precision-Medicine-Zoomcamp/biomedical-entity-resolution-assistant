@@ -82,3 +82,25 @@ def test_resolve_rag_endpoint():
     assert len(data["merged_context"]) > 0
     assert len(data["report"]) > 0
     assert "Biomedical Analysis & Clinical Report" in data["report"]
+
+def test_agent_endpoint():
+    response1 = client.post("/agent/query", json={
+        "query": "Tell me about MI",
+        "session_id": "test_api_session"
+    })
+    assert response1.status_code == 200
+    data1 = response1.json()
+    assert data1["session_id"] == "test_api_session"
+    assert data1["intent"] == "EXPLAIN_ENTITY"
+    assert len(data1["resolved_entities"]) == 1
+    assert "Myocardial Infarction" in data1["report"]
+
+    response2 = client.post("/agent/query", json={
+        "query": "Compare it with Tylenol",
+        "session_id": "test_api_session"
+    })
+    assert response2.status_code == 200
+    data2 = response2.json()
+    assert data2["enriched_query"] == "Compare Myocardial Infarction with Tylenol"
+    assert data2["intent"] == "COMPARE_ENTITIES"
+    assert len(data2["resolved_entities"]) == 2

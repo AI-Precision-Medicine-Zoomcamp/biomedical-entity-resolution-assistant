@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 
-from typing import List
+from typing import List, Optional
 from src.retrieval.rag_pipeline import BiomedicalRetriever
 
 app = FastAPI(
@@ -181,6 +181,34 @@ def resolve_text_endpoint(request: TextResolutionRequest):
 def resolve_rag_endpoint(request: RAGRequest):
     rag = get_rag_pipeline()
     return rag.run_pipeline(request.text)
+
+from src.agent.agent import BiomedicalAgent
+
+agent_instance = None
+
+def get_agent():
+    global agent_instance
+    if agent_instance is None:
+        agent_instance = BiomedicalAgent()
+    return agent_instance
+
+class AgentRequest(BaseModel):
+    query: str
+    session_id: Optional[str] = None
+
+class AgentResponse(BaseModel):
+    session_id: str
+    original_query: str
+    enriched_query: str
+    intent: str
+    resolved_entities: List[TextResolutionItem]
+    report: str
+    system_prompt: str
+
+@app.post("/agent/query", response_model=AgentResponse)
+def query_agent_endpoint(request: AgentRequest):
+    agent = get_agent()
+    return agent.process_query(query=request.query, session_id=request.session_id)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
