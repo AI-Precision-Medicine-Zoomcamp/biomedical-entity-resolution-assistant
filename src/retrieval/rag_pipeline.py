@@ -3,7 +3,6 @@ import sys
 import yaml
 import pandas as pd
 from pathlib import Path
-from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 
 # Add project root to path
@@ -12,7 +11,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 from src.preprocessing.text_normalizer import generate_normalized_variants
-from src.retrieval.embed_and_index import get_qdrant_client, COLLECTION_NAME, MODEL_HF_ID
+from src.embeddings.embedder import BiomedicalEmbedder
+from src.retrieval.embed_and_index import get_qdrant_client, COLLECTION_NAME
+
 
 class BiomedicalRetriever:
     """
@@ -56,10 +57,11 @@ class BiomedicalRetriever:
         return self._qdrant_client
 
     @property
-    def embedding_model(self) -> SentenceTransformer:
+    def embedding_model(self) -> BiomedicalEmbedder:
         if self._embedding_model is None:
-            self._embedding_model = SentenceTransformer(MODEL_HF_ID)
+            self._embedding_model = BiomedicalEmbedder()
         return self._embedding_model
+
 
     def lexical_search(self, query: str, limit: int = 10) -> list[dict]:
         """
@@ -121,7 +123,7 @@ class BiomedicalRetriever:
             
         return results_list
 
-    def vector_search(self, query: str, limit: int = 10) -> list[dict]:
+    def vector_search(self, query: str, limit: int = 10, min_score: float = 0.70) -> list[dict]:
         """
         Performs semantic vector search on Qdrant using SapBERT embeddings.
         """
@@ -132,7 +134,7 @@ class BiomedicalRetriever:
             return []
             
         # Embed query
-        query_vector = self.embedding_model.encode(query).tolist()
+        query_vector = self.embedding_model.embed_texts([query])[0].tolist()
         
         # Query Qdrant
         response = self.qdrant_client.query_points(
@@ -143,6 +145,8 @@ class BiomedicalRetriever:
         
         results_list = []
         for hit in response.points:
+            if hit.score < min_score:
+                continue
             payload = hit.payload
             results_list.append({
                 "identifier": payload["identifier"],
@@ -155,6 +159,7 @@ class BiomedicalRetriever:
             })
             
         return results_list
+
 
     def hybrid_search(self, query: str, limit: int = None, rrf_k: int = 60) -> list[dict]:
         """

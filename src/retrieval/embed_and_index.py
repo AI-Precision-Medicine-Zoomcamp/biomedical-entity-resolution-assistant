@@ -5,9 +5,10 @@ import yaml
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-from sentence_transformers import SentenceTransformer
+from src.embeddings.embedder import BiomedicalEmbedder
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
+
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -126,7 +127,7 @@ def run_indexing_pipeline(limit: int = None):
     
     # 3. Load Embedding Model
     print(f"[Pipeline] Loading embedding model: '{MODEL_HF_ID}' (device selection is automated)...")
-    model = SentenceTransformer(MODEL_HF_ID)
+    model = BiomedicalEmbedder(MODEL_HF_ID)
     
     # 4. Prepare text inputs to embed
     # Format: Canonical Name + Synonyms + Description
@@ -149,7 +150,7 @@ def run_indexing_pipeline(limit: int = None):
         batch_texts = batch_df["text_to_embed"].tolist()
         
         # Generate embeddings
-        embeddings = model.encode(batch_texts, batch_size=batch_size, show_progress_bar=False)
+        embeddings = model.embed_texts(batch_texts, batch_size=batch_size, show_progress_bar=False)
         
         # Prepare Qdrant points
         points = []

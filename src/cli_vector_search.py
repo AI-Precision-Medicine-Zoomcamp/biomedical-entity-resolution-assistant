@@ -1,7 +1,7 @@
 import sys
 import yaml
 from pathlib import Path
-from sentence_transformers import SentenceTransformer
+from src.embeddings.embedder import BiomedicalEmbedder
 from qdrant_client import QdrantClient
 
 # Add project root to path
@@ -24,11 +24,12 @@ def vector_search(query: str, top_k: int = 5):
         
     # Load model
     print(f"[Vector Search] Loading model: '{MODEL_HF_ID}'...")
-    model = SentenceTransformer(MODEL_HF_ID)
+    model = BiomedicalEmbedder(MODEL_HF_ID)
     
     # Embed query
     print(f"[Vector Search] Embedding query: '{query}'...")
-    query_vector = model.encode(query).tolist()
+    query_vector = model.embed_texts([query])[0].tolist()
+
     
     # Search Qdrant
     print(f"[Vector Search] Querying Qdrant collection '{COLLECTION_NAME}'...")
