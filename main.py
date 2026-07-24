@@ -124,6 +124,35 @@ def search_entities(query: str, limit: int = 5):
     ]
     return SearchResponse(query=query, results=candidates)
 
+from src.entity_resolution.pipeline import BiomedicalEntityResolverPipeline
+
+resolver_pipeline = None
+
+def get_resolver():
+    global resolver_pipeline
+    if resolver_pipeline is None:
+        resolver_pipeline = BiomedicalEntityResolverPipeline()
+    return resolver_pipeline
+
+class TextResolutionRequest(BaseModel):
+    text: str
+
+class TextResolutionItem(BaseModel):
+    mention: str
+    start_char: int
+    end_char: int
+    canonical_name: str
+    entity_type: str
+    identifier: str
+    ontology: str
+    confidence: float
+    explanation: str
+
+@app.post("/resolve-text", response_model=List[TextResolutionItem])
+def resolve_text_endpoint(request: TextResolutionRequest):
+    resolver = get_resolver()
+    return resolver.resolve_text(request.text)
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
