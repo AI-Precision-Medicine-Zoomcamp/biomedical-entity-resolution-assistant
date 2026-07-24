@@ -19,6 +19,7 @@ dependencies = [
     "scispacy>=0.2.4",
     "sentence-transformers>=5.6.1",
     "spacy>=3.8.14",
+    "streamlit>=1.60.0",
     "torch>=2.13.0",
     "tqdm>=4.69.0",
     "uvicorn>=0.50.2",
