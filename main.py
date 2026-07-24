@@ -2,6 +2,7 @@ import uvicorn
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+
 app = FastAPI(
     title="Biomedical Entity Resolution Assistant API",
     description="Resolves biomedical entities to standard representations",

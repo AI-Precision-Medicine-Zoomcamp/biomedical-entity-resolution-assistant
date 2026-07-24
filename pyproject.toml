@@ -1,30 +1,30 @@
-[build-system]
-requires = ["setuptools>=61.0.0", "wheel"]
-build-backend = "setuptools.build-meta"
-
 [project]
 name = "biomedical-entity-resolution-assistant"
 version = "0.1.0"
-description = "A Precision Medicine AI assistant for resolving biomedical entities"
+description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "James" }
-]
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 dependencies = [
-    "fastapi>=0.100.0",
-    "uvicorn>=0.22.0",
-    "streamlit>=1.24.0",
-    "rapidfuzz>=3.1.0",
-    "chromadb>=0.4.0",
-    "spacy>=3.5.0",
-    "pandas>=2.0.0",
-    "pyyaml>=6.0",
+    "fastapi>=0.139.2",
+    "numpy>=2.5.1",
+    "pandas>=3.0.3",
+    "pyarrow>=24.0.0",
+    "pydantic>=2.13.4",
+    "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.3",
+    "qdrant-client>=1.18.0",
+    "requests>=2.34.2",
+    "scikit-learn>=1.9.0",
+    "scispacy>=0.2.4",
+    "sentence-transformers>=5.6.1",
+    "spacy>=3.8.14",
+    "torch>=2.13.0",
+    "tqdm>=4.69.0",
+    "uvicorn>=0.50.2",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "pytest>=7.3.0",
-    "black>=23.3.0",
-    "isort>=5.12.0",
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
 ]

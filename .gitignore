@@ -10,7 +10,10 @@ __pycache__/
 .pytest_cache/
 
 # Data & Vector Databases
+data/ontology_cache/
 chroma_db/
+data/raw/
+data/processed/
 *.csv
 *.json
 *.parquet

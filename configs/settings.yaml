@@ -1,0 +1,19 @@
+project:
+
+  name: Biomedical Entity Resolution Assistant
+
+embedding:
+
+  model: sapbert
+
+retrieval:
+
+  top_k: 10
+
+vector_db:
+
+  provider: qdrant
+
+evaluation:
+
+  benchmark_top_k: 10
