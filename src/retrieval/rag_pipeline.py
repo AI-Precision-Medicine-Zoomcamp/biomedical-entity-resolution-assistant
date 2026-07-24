@@ -13,9 +13,10 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.preprocessing.text_normalizer import generate_normalized_variants
 from src.embeddings.embedder import BiomedicalEmbedder
 from src.retrieval.embed_and_index import get_qdrant_client, COLLECTION_NAME
+from src.retrieval.base_retriever import BaseRetrievalService
 
 
-class BiomedicalRetriever:
+class BiomedicalRetriever(BaseRetrievalService):
     """
     Hybrid Retriever combining Lexical Search (from normalized lookup table)
     and Vector Search (from Qdrant) using Reciprocal Rank Fusion (RRF).

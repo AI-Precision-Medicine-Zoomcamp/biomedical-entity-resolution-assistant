@@ -18,9 +18,12 @@ class BiomedicalEntityResolverPipeline:
     Steps:
       Text -> NER -> Retrieval -> Ranking -> Confidence -> Explanation -> JSON Response
     """
-    def __init__(self):
+    def __init__(self, retrieval_service=None):
         self.ner = BiomedicalNER()
-        self.retriever = BiomedicalRetriever()
+        if retrieval_service is None:
+            self.retriever = BiomedicalRetriever()
+        else:
+            self.retriever = retrieval_service
         self.ranker = CandidateRanker()
         self.confidence_estimator = ConfidenceEstimator()
         self.explanation_generator = ExplanationGenerator()
