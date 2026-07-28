@@ -29,8 +29,26 @@ st.markdown("""
 <style>
     /* Hide Streamlit default styling elements */
     #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
     footer {visibility: hidden;}
+    div[data-testid="stToolbar"] {visibility: hidden !important;}
+    div[data-testid="stDecoration"] {visibility: hidden !important;}
+    
+    header[data-testid="stHeader"] {
+        background-color: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    
+    button[data-testid="stSidebarCollapsedControl"] {
+        background-color: #212121 !important;
+        color: #ececec !important;
+        border: 1px solid #424242 !important;
+        border-radius: 8px !important;
+        transition: background-color 0.2s ease !important;
+    }
+    button[data-testid="stSidebarCollapsedControl"]:hover {
+        background-color: #2f2f2f !important;
+    }
     
     /* Main body background to match ChatGPT Dark Mode */
     .stApp {
