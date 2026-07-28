@@ -23,8 +23,17 @@ def compare_entities(entity_a: dict, entity_b: dict) -> dict:
     src_a = entity_a.get("source", entity_a.get("ontology", "Unknown"))
     src_b = entity_b.get("source", entity_b.get("ontology", "Unknown"))
 
-    syns_a = set([s.strip().lower() for s in entity_a.get("synonyms", "").split("|") if s.strip()])
-    syns_b = set([s.strip().lower() for s in entity_b.get("synonyms", "").split("|") if s.strip()])
+    def parse_synonyms(val) -> set:
+        if not val:
+            return set()
+        if isinstance(val, list):
+            return set([s.strip().lower() for s in val if isinstance(s, str) and s.strip()])
+        if isinstance(val, str):
+            return set([s.strip().lower() for s in val.split("|") if s.strip()])
+        return set()
+
+    syns_a = parse_synonyms(entity_a.get("synonyms"))
+    syns_b = parse_synonyms(entity_b.get("synonyms"))
     
     common_synonyms = list(syns_a.intersection(syns_b))
     

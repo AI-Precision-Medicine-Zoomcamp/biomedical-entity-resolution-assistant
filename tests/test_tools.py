@@ -44,6 +44,24 @@ def test_compare_entities_tool():
     assert comparison["concept_b"] == "Cardiac Arrest"
     assert comparison["same_type"] is True
 
+def test_compare_entities_with_list_synonyms():
+    ent1 = {
+        "canonical_name": "Concept A",
+        "entity_type": "Disease",
+        "source": "MeSH",
+        "synonyms": ["concept a", "concept_a_variant"],
+        "description": "A test concept."
+    }
+    ent2 = {
+        "canonical_name": "Concept B",
+        "entity_type": "Disease",
+        "source": "MeSH",
+        "synonyms": "Concept B|concept_a_variant",
+        "description": "Another test concept with a matching synonym."
+    }
+    comparison = compare_entities(ent1, ent2)
+    assert comparison["shared_synonyms"] == ["concept_a_variant"]
+
 def test_generate_report_tool():
     resolved = resolve_entity("MI and Tylenol")
     lit = search_literature("Myocardial Infarction", limit=1)
