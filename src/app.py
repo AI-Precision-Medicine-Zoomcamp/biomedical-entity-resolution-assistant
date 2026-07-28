@@ -1,13 +1,16 @@
 import sys
 import uuid
 from pathlib import Path
-import streamlit as st
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+from dotenv import load_dotenv
+load_dotenv(PROJECT_ROOT / ".env")
+
+import streamlit as st
 from src.agent.pydantic_ai_agent import PydanticAIBiomedicalAgent
 from src.agent.router import WorkflowRouter
 from src.entity_resolution.pipeline import BiomedicalEntityResolverPipeline
@@ -15,87 +18,127 @@ from src.tools import generate_report
 
 # 1. Page Configuration and Theming
 st.set_page_config(
-    page_title="Biomedical Entity Resolution Assistant",
+    page_title="Biomedical Agent",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom premium CSS styling (Harmonious Teal/Slate theme with subtle micro-animations)
+# Custom ChatGPT-like Dark & Minimalist Theme
 st.markdown("""
 <style>
-    /* Main container styling */
+    /* Hide Streamlit default styling elements */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Main body background to match ChatGPT Dark Mode */
     .stApp {
-        background-color: #0f172a;
-        color: #e2e8f0;
-        font-family: 'Inter', -apple-system, sans-serif;
+        background-color: #212121 !important;
+        color: #ececec !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
     
-    /* Sidebar styling */
+    /* Center and limit width of the chat area */
+    .block-container {
+        max-width: 800px !important;
+        padding-top: 2rem !important;
+        padding-bottom: 5rem !important;
+    }
+    
+    /* Sidebar Styling */
     section[data-testid="stSidebar"] {
-        background-color: #1e293b !important;
-        border-right: 1px solid #334155;
+        background-color: #171717 !important;
+        border-right: 1px solid #2f2f2f !important;
+        width: 260px !important;
     }
     
-    /* Title typography */
-    h1, h2, h3 {
-        font-family: 'Outfit', 'Inter', sans-serif;
-        font-weight: 700;
-        color: #38bdf8;
+    /* Sidebar navigation elements */
+    section[data-testid="stSidebar"] div.stButton > button {
+        background-color: transparent !important;
+        color: #ececec !important;
+        border: 1px solid #4d4d4d !important;
+        border-radius: 8px !important;
+        width: 100% !important;
+        text-align: left !important;
+        padding: 10px 14px !important;
+        font-size: 13px !important;
+        transition: background-color 0.2s ease !important;
+        font-weight: 500 !important;
+    }
+    section[data-testid="stSidebar"] div.stButton > button:hover {
+        background-color: #2f2f2f !important;
+        border-color: #4d4d4d !important;
     }
     
-    /* Clinical Card style */
-    .clinical-card {
-        background: rgba(30, 41, 59, 0.7);
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        transition: all 0.3s ease;
+    /* Main Chat bubble text size controls */
+    div[data-testid="stChatMessage"] {
+        background-color: transparent !important;
+        border: none !important;
+        padding: 1.2rem 0 !important;
     }
-    .clinical-card:hover {
-        border-color: #0ea5e9;
-        box-shadow: 0 10px 15px -3px rgba(14, 165, 233, 0.1), 0 4px 6px -4px rgba(14, 165, 233, 0.1);
+    div[data-testid="stChatMessageContent"] {
+        font-size: 14px !important;
+        line-height: 1.6 !important;
     }
     
-    /* Badge styling */
-    .badge {
+    /* Minimal micro-pill badge styling */
+    .micro-pill {
         display: inline-flex;
         align-items: center;
-        padding: 4px 10px;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 500;
         margin-right: 6px;
         margin-bottom: 6px;
+        border: 1px solid transparent;
+        font-family: monospace;
     }
-    .badge-ontology {
-        background-color: #0284c7;
-        color: #e0f2fe;
+    .pill-resolved {
+        background-color: rgba(22, 163, 74, 0.1);
+        color: #4ade80;
+        border-color: rgba(22, 163, 74, 0.3);
     }
-    .badge-resolved {
-        background-color: #16a34a;
-        color: #dcfce7;
+    .pill-review {
+        background-color: rgba(234, 88, 12, 0.1);
+        color: #fb923c;
+        border-color: rgba(234, 88, 12, 0.3);
     }
-    .badge-review {
-        background-color: #ea580c;
-        color: #ffedd5;
-    }
-    .badge-rejected {
-        background-color: #dc2626;
-        color: #fee2e2;
-    }
-    .badge-confidence {
-        background-color: #4f46e5;
-        color: #e0e7ff;
+    .pill-rejected {
+        background-color: rgba(220, 38, 38, 0.1);
+        color: #f87171;
+        border-color: rgba(220, 38, 38, 0.3);
     }
     
-    /* Custom divider line */
-    .divider {
-        height: 1px;
-        background: linear-gradient(90deg, transparent, #334155, transparent);
-        margin: 24px 0;
+    /* Model selector container */
+    .model-selector {
+        font-size: 14px;
+        color: #b4b4b4;
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 8px;
+        cursor: default;
+    }
+    .active-dot {
+        height: 6px;
+        width: 6px;
+        background-color: #10a37f;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    
+    /* Chat Input Styling */
+    [data-testid="stChatInput"] {
+        background-color: #2f2f2f !important;
+        border: 1px solid #424242 !important;
+        border-radius: 24px !important;
+    }
+    [data-testid="stChatInput"] textarea {
+        color: #ececec !important;
+        font-size: 14px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -125,241 +168,204 @@ if "session_id" not in st.session_state:
 if "all_resolved_entities" not in st.session_state:
     st.session_state.all_resolved_entities = []
 
-# 4. Sidebar Options and Analytics Panel
+# 4. Minimalist ChatGPT Sidebar
 with st.sidebar:
-    st.image("https://img.icons8.com/color/120/dna.png", width=70)
-    st.title("Biomedical Agent")
-    st.markdown("🧬 *Clinical Entity Resolution & Multi-Source RAG*")
-    st.markdown("---")
-    
-    st.subheader("⚙️ Session Configurations")
-    session_id_input = st.text_input("Active Session ID", value=st.session_state.session_id, key="active_session_id")
-    if session_id_input != st.session_state.session_id:
-        st.session_state.session_id = session_id_input
-        st.session_state.messages = []
-        st.session_state.all_resolved_entities = []
-        st.success("Session reset completed!")
-        st.rerun()
-
-    st.markdown("---")
-    st.subheader("📊 Session Resolution Stats")
-    
-    if st.session_state.all_resolved_entities:
-        total_ents = len(st.session_state.all_resolved_entities)
-        resolved_ents = sum(1 for e in st.session_state.all_resolved_entities if e.get("status") == "resolved")
-        review_ents = sum(1 for e in st.session_state.all_resolved_entities if e.get("status") == "needs_review")
-        
-        st.metric("Total Mentions Captured", total_ents)
-        st.metric("Automatically Resolved", f"{resolved_ents} ({(resolved_ents/total_ents)*100:.1f}%)")
-        st.metric("Needs Human Review", review_ents)
-        
-        # Display list of recently resolved terms
-        st.markdown("**Recently Resolved Concepts:**")
-        unique_canonicals = list(set(e.get("canonical_name", e.get("canonical", "Unknown")) for e in st.session_state.all_resolved_entities))
-        for item in unique_canonicals[-5:]:
-            st.markdown(f"🔬 `{item}`")
-    else:
-        st.info("No biomedical entities resolved in this session yet.")
-        
-    st.markdown("---")
-    if st.button("🧹 Clear Chat History", use_container_width=True):
+    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+    if st.button("➕ New Chat", use_container_width=True):
         st.session_state.messages = []
         st.session_state.all_resolved_entities = []
         st.session_state.session_id = str(uuid.uuid4())
         st.rerun()
+        
+    st.markdown("<div style='margin-top: 25px;'></div>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 11px; font-weight: 600; color: #666; margin-left: 5px; text-transform: uppercase;'>Recent</p>", unsafe_allow_html=True)
+    
+    # Active Session display
+    st.markdown(f"""
+    <div style='background-color: #2f2f2f; padding: 8px 12px; border-radius: 6px; font-size: 12px; color: #ececec; border-left: 3px solid #10a37f;'>
+        💬 Active Session<br>
+        <span style='font-size: 10px; color: #888;'>{st.session_state.session_id[:13]}...</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 11px; font-weight: 600; color: #666; margin-left: 5px; text-transform: uppercase;'>Resolution Metrics</p>", unsafe_allow_html=True)
+    
+    # Minimal metrics counter
+    if st.session_state.all_resolved_entities:
+        total_ents = len(st.session_state.all_resolved_entities)
+        resolved_ents = sum(1 for e in st.session_state.all_resolved_entities if e.get("status") == "resolved")
+        review_ents = sum(1 for e in st.session_state.all_resolved_entities if e.get("status") == "needs_review")
+        st.markdown(f"""
+        <div style='font-size: 12px; color: #b4b4b4; padding-left: 5px; line-height: 1.8;'>
+            Captured: <strong>{total_ents}</strong><br>
+            Resolved: <strong style="color: #4ade80;">{resolved_ents}</strong><br>
+            Review Queue: <strong style="color: #fb923c;">{review_ents}</strong>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("<p style='font-size: 12px; color: #555; padding-left: 5px;'>No data logged.</p>", unsafe_allow_html=True)
 
-# 5. Main Screen Header
-st.title("🧬 Biomedical Agent System")
-st.markdown("Query clinical concepts, analyze research literature, and resolve biomedical synonyms in real-time.")
+# 5. Top Navigation Selector (Just like Model dropdown in ChatGPT)
+col_left, col_right = st.columns([8, 2])
+with col_left:
+    st.markdown("""
+    <div class="model-selector">
+        <span class="active-dot"></span>
+        <strong style="color: #ececec; font-size: 13px;">Biomedical Agent v1.0</strong>
+    </div>
+    """, unsafe_allow_html=True)
+with col_right:
+    st.markdown("<span style='font-size: 11px; color: #666; float: right; margin-top: 6px;'>MeSH / RxNorm / HGNC</span>", unsafe_allow_html=True)
+
+st.markdown("<div style='height: 1px; background-color: #2f2f2f; margin-bottom: 1.5rem;'></div>", unsafe_allow_html=True)
 
 # 6. Chat History Render
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
+    avatar = "👤" if message["role"] == "user" else "🧬"
+    with st.chat_message(message["role"], avatar=avatar):
         if message["role"] == "user":
             st.markdown(message["content"])
         else:
-            # Check if this response has structured clinical results to display
             res_meta = message.get("metadata", {})
-            
-            # Show routing route & intent
-            intent = res_meta.get("intent", "Unknown")
             route = res_meta.get("route", "COMPLEX_AGENT")
             
-            # Render custom intent banner
+            # Sub-info/routing details rendered minimally
             if route == "SIMPLE_RESOLUTION":
-                st.info(f"⚡ **Fast Route (Module 2)**: Resolved deterministically (0 LLM Tokens used)")
+                st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>⚡ <em>Deterministic Module 2 Resolution</em></p>", unsafe_allow_html=True)
             else:
-                st.success(f"🧠 **Complex Route (Biomedical Agent)**: Multi-turn RAG & LLM Reasoning orchestration completed.")
-                if res_meta.get("enriched_query") and res_meta.get("enriched_query") != res_meta.get("original_query"):
-                    st.caption(f"*Pronoun resolved query: \"{res_meta.get('enriched_query')}\"*")
-            
-            # 1. Main Clinical Report Content
+                st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>🧠 <em>Biomedical Agent RAG reasoning loop</em></p>", unsafe_allow_html=True)
+                
+            # Main text content
             st.markdown(message["content"])
             
-            # 2. Resolved Entities expander panel
+            # Horizontal minimal entity pills instead of massive boxes
             entities = res_meta.get("resolved_entities", [])
             if entities:
-                with st.expander("🔬 View Resolved Biomedical Entities Details", expanded=True):
-                    cols = st.columns(len(entities) if len(entities) <= 3 else 3)
-                    for idx, ent in enumerate(entities):
-                        col_idx = idx % 3
-                        with cols[col_idx]:
-                            status = ent.get("status", "resolved")
-                            badge_cls = "badge-resolved" if status == "resolved" else ("badge-review" if status == "needs_review" else "badge-rejected")
-                            
-                            st.markdown(f"""
-                            <div class="clinical-card">
-                                <strong>Mention:</strong> <code style="color:#38bdf8;">{ent.get('mention')}</code><br>
-                                <strong>Canonical:</strong> <code>{ent.get('canonical_name', ent.get('canonical', 'Unknown'))}</code><br>
-                                <span class="badge badge-ontology">{ent.get('ontology')}</span>
-                                <span class="badge {badge_cls}">{status.upper()}</span>
-                                <br>
-                                <strong>ID:</strong> <code>{ent.get('identifier', ent.get('concept_id', 'N/A'))}</code><br>
-                                <strong>Confidence:</strong> <code>{ent.get('confidence', 0.0):.2f}</code><br>
-                                <details style="margin-top:8px;font-size:0.8rem;">
-                                    <summary>Reasoning</summary>
-                                    <ul style="padding-left:15px;margin-top:4px;">
-                                        {"".join(f"<li>{r}</li>" for r in ent.get('reason', []))}
-                                    </ul>
-                                </details>
-                            </div>
-                            """, unsafe_allow_html=True)
+                st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+                pills_html = ""
+                for ent in entities:
+                    status = ent.get("status", "resolved")
+                    pill_class = "pill-resolved" if status == "resolved" else ("pill-review" if status == "needs_review" else "pill-rejected")
+                    
+                    pill_text = f"{ent.get('ontology')}: {ent.get('mention')} ➜ {ent.get('canonical_name', ent.get('canonical'))} ({ent.get('identifier', ent.get('concept_id'))})"
+                    pills_html += f"<span class='micro-pill {pill_class}'>{pill_text}</span>"
+                    
+                st.markdown(pills_html, unsafe_allow_html=True)
 
-# 7. User Interaction Input Loop
-if user_query := st.chat_input("Enter clinical statement (e.g., 'Compare MI with Tylenol')"):
-    # Append User Message to State
+# 7. Bottom Input Bar & Disclaimer
+if user_query := st.chat_input("Message Biomedical Agent..."):
+    # Append User Message
     st.session_state.messages.append({"role": "user", "content": user_query})
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar="👤"):
         st.markdown(user_query)
 
-    # Process and Query
-    with st.chat_message("assistant"):
-        with st.spinner("Analyzing queries, resolving ontology entities, and querying literature sources..."):
-            try:
-                # A. Route query using Workflow Router
-                route = router.route(user_query)
+    # Process Query
+    with st.chat_message("assistant", avatar="🧬"):
+        try:
+            route = router.route(user_query)
+            
+            if route == "SIMPLE_RESOLUTION":
+                resolved_entities_raw = resolver.resolve_text(user_query)
+                entities_dict = []
+                for ent in resolved_entities_raw:
+                    if isinstance(ent, dict):
+                        entities_dict.append({
+                            "mention": ent.get("mention", ""),
+                            "canonical_name": ent.get("canonical_name", ent.get("canonical", "")),
+                            "canonical": ent.get("canonical", ""),
+                            "entity_type": ent.get("entity_type", ""),
+                            "identifier": ent.get("identifier", ""),
+                            "concept_id": ent.get("concept_id", ""),
+                            "ontology": ent.get("ontology", ""),
+                            "confidence": ent.get("confidence", 0.0),
+                            "status": ent.get("status", "resolved"),
+                            "reason": ent.get("reason", []),
+                            "explanation": ent.get("explanation", "")
+                        })
+                    else:
+                        entities_dict.append({
+                            "mention": getattr(ent, "mention", ""),
+                            "canonical_name": getattr(ent, "canonical_name", getattr(ent, "canonical", "")),
+                            "canonical": getattr(ent, "canonical", ""),
+                            "entity_type": getattr(ent, "entity_type", ""),
+                            "identifier": getattr(ent, "identifier", ""),
+                            "concept_id": getattr(ent, "concept_id", ""),
+                            "ontology": getattr(ent, "ontology", ""),
+                            "confidence": getattr(ent, "confidence", 0.0),
+                            "status": getattr(ent, "status", "resolved"),
+                            "reason": getattr(ent, "reason", []),
+                            "explanation": getattr(ent, "explanation", "")
+                        })
+                        
+                report = generate_report(user_query, entities_dict)
+                agent.history_manager.add_turn(
+                    session_id=st.session_state.session_id,
+                    user_content=user_query,
+                    assistant_content=report,
+                    resolved_entities=entities_dict
+                )
+                res_payload = {
+                    "session_id": st.session_state.session_id,
+                    "original_query": user_query,
+                    "enriched_query": user_query,
+                    "intent": "SIMPLE_RESOLUTION",
+                    "resolved_entities": entities_dict,
+                    "report": report,
+                    "route": "SIMPLE_RESOLUTION"
+                }
+            else:
+                res = agent.process_query(user_query, session_id=st.session_state.session_id)
+                res_payload = {
+                    "session_id": res["session_id"],
+                    "original_query": res["original_query"],
+                    "enriched_query": res["enriched_query"],
+                    "intent": res["intent"],
+                    "resolved_entities": res["resolved_entities"],
+                    "report": res["report"],
+                    "route": "COMPLEX_AGENT"
+                }
                 
-                # B. Execute corresponding handler
-                if route == "SIMPLE_RESOLUTION":
-                    resolved_entities_raw = resolver.resolve_text(user_query)
-                    
-                    # Convert to list of dict
-                    entities_dict = []
-                    for ent in resolved_entities_raw:
-                        if isinstance(ent, dict):
-                            entities_dict.append({
-                                "mention": ent.get("mention", ""),
-                                "canonical_name": ent.get("canonical_name", ent.get("canonical", "")),
-                                "canonical": ent.get("canonical", ""),
-                                "entity_type": ent.get("entity_type", ""),
-                                "identifier": ent.get("identifier", ""),
-                                "concept_id": ent.get("concept_id", ""),
-                                "ontology": ent.get("ontology", ""),
-                                "confidence": ent.get("confidence", 0.0),
-                                "status": ent.get("status", "resolved"),
-                                "reason": ent.get("reason", []),
-                                "explanation": ent.get("explanation", "")
-                            })
-                        else:
-                            entities_dict.append({
-                                "mention": getattr(ent, "mention", ""),
-                                "canonical_name": getattr(ent, "canonical_name", getattr(ent, "canonical", "")),
-                                "canonical": getattr(ent, "canonical", ""),
-                                "entity_type": getattr(ent, "entity_type", ""),
-                                "identifier": getattr(ent, "identifier", ""),
-                                "concept_id": getattr(ent, "concept_id", ""),
-                                "ontology": getattr(ent, "ontology", ""),
-                                "confidence": getattr(ent, "confidence", 0.0),
-                                "status": getattr(ent, "status", "resolved"),
-                                "reason": getattr(ent, "reason", []),
-                                "explanation": getattr(ent, "explanation", "")
-                            })
-                            
-                    report = generate_report(user_query, entities_dict)
-                    
-                    # Log turn in history
-                    agent.history_manager.add_turn(
-                        session_id=st.session_state.session_id,
-                        user_content=user_query,
-                        assistant_content=report,
-                        resolved_entities=entities_dict
-                    )
-                    
-                    res_payload = {
-                        "session_id": st.session_state.session_id,
-                        "original_query": user_query,
-                        "enriched_query": user_query,
-                        "intent": "SIMPLE_RESOLUTION",
-                        "resolved_entities": entities_dict,
-                        "report": report,
-                        "route": "SIMPLE_RESOLUTION"
-                    }
-                else:
-                    # Route to Complex reasoning agent
-                    res = agent.process_query(user_query, session_id=st.session_state.session_id)
-                    res_payload = {
-                        "session_id": res["session_id"],
-                        "original_query": res["original_query"],
-                        "enriched_query": res["enriched_query"],
-                        "intent": res["intent"],
-                        "resolved_entities": res["resolved_entities"],
-                        "report": res["report"],
-                        "route": "COMPLEX_AGENT"
-                    }
-
-                # Display Results
-                if res_payload["route"] == "SIMPLE_RESOLUTION":
-                    st.info(f"⚡ **Fast Route (Module 2)**: Resolved deterministically (0 LLM Tokens used)")
-                else:
-                    st.success(f"🧠 **Complex Route (Biomedical Agent)**: Multi-turn RAG & LLM Reasoning orchestration completed.")
-                    if res_payload["enriched_query"] != res_payload["original_query"]:
-                        st.caption(f"*Pronoun resolved query: \"{res_payload['enriched_query']}\"*")
-
-                st.markdown(res_payload["report"])
+            # Render Results
+            if res_payload["route"] == "SIMPLE_RESOLUTION":
+                st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>⚡ <em>Deterministic Module 2 Resolution</em></p>", unsafe_allow_html=True)
+            else:
+                st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>🧠 <em>Biomedical Agent RAG reasoning loop</em></p>", unsafe_allow_html=True)
                 
-                # Render entities block
-                entities = res_payload["resolved_entities"]
-                if entities:
-                    with st.expander("🔬 View Resolved Biomedical Entities Details", expanded=True):
-                        cols = st.columns(len(entities) if len(entities) <= 3 else 3)
-                        for idx, ent in enumerate(entities):
-                            col_idx = idx % 3
-                            with cols[col_idx]:
-                                status = ent.get("status", "resolved")
-                                badge_cls = "badge-resolved" if status == "resolved" else ("badge-review" if status == "needs_review" else "badge-rejected")
-                                
-                                st.markdown(f"""
-                                <div class="clinical-card">
-                                    <strong>Mention:</strong> <code style="color:#38bdf8;">{ent.get('mention')}</code><br>
-                                    <strong>Canonical:</strong> <code>{ent.get('canonical_name', ent.get('canonical', 'Unknown'))}</code><br>
-                                    <span class="badge badge-ontology">{ent.get('ontology')}</span>
-                                    <span class="badge {badge_cls}">{status.upper()}</span>
-                                    <br>
-                                    <strong>ID:</strong> <code>{ent.get('identifier', ent.get('concept_id', 'N/A'))}</code><br>
-                                    <strong>Confidence:</strong> <code>{ent.get('confidence', 0.0):.2f}</code><br>
-                                    <details style="margin-top:8px;font-size:0.8rem;">
-                                        <summary>Reasoning</summary>
-                                        <ul style="padding-left:15px;margin-top:4px;">
-                                            {"".join(f"<li>{r}</li>" for r in ent.get('reason', []))}
-                                        </ul>
-                                    </details>
-                                </div>
-                                """, unsafe_allow_html=True)
-                                
-                    # Accumulate session metrics
-                    st.session_state.all_resolved_entities.extend(entities)
-
-                # Save Response Message to State
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": res_payload["report"],
-                    "metadata": res_payload
-                })
+            st.markdown(res_payload["report"])
+            
+            # Render entity pills
+            entities = res_payload["resolved_entities"]
+            if entities:
+                st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+                pills_html = ""
+                for ent in entities:
+                    status = ent.get("status", "resolved")
+                    pill_class = "pill-resolved" if status == "resolved" else ("pill-review" if status == "needs_review" else "pill-rejected")
+                    
+                    pill_text = f"{ent.get('ontology')}: {ent.get('mention')} ➜ {ent.get('canonical_name', ent.get('canonical'))} ({ent.get('identifier', ent.get('concept_id'))})"
+                    pills_html += f"<span class='micro-pill {pill_class}'>{pill_text}</span>"
+                    
+                st.markdown(pills_html, unsafe_allow_html=True)
+                st.session_state.all_resolved_entities.extend(entities)
                 
-            except Exception as err:
-                st.error(f"Failed to process request: {err}")
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": f"Failed to process request: {err}",
-                    "metadata": {}
-                })
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": res_payload["report"],
+                "metadata": res_payload
+            })
+            
+        except Exception as err:
+            st.error(f"Error processing request: {err}")
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": f"Error: {err}",
+                "metadata": {}
+            })
+
+# Minimalist floating disclaimer
+st.markdown("""
+<div style='text-align: center; font-size: 11px; color: #555; margin-top: 40px; width: 100%;'>
+    Biomedical Agent can make mistakes. Verify clinical details in peer-reviewed sources.
+</div>
+""", unsafe_allow_html=True)
