@@ -5,15 +5,21 @@ import yaml
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-from src.embeddings.embedder import BiomedicalEmbedder
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
-
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
+
+# Mock torchvision before other imports
+import src.utils.mock_torchvision
+
+from src.embeddings.embedder import BiomedicalEmbedder
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
+
+# Global variable to cache the Qdrant Client singleton
+_qdrant_client_instance = None
 
 # Load configurations
 SETTINGS_PATH = PROJECT_ROOT / "configs" / "settings.yaml"
@@ -44,23 +50,37 @@ def get_qdrant_client() -> QdrantClient:
     """
     Attempts to connect to a local running Qdrant server.
     If it's not running, falls back to a persistent local SQLite/file-backed database.
+    If the local database is locked by another instance, falls back to in-memory mode.
+    Caches the client instance to avoid multiple concurrent locks on local disk.
     """
+    global _qdrant_client_instance
+    if _qdrant_client_instance is not None:
+        return _qdrant_client_instance
+
     host = os.getenv("QDRANT_HOST", "localhost")
     port = int(os.getenv("QDRANT_PORT", 6333))
     
     try:
         # Check if local server is responsive
-        client = QdrantClient(host=host, port=port, timeout=3.0)
+        check_client = QdrantClient(host=host, port=port, timeout=3.0, check_compatibility=False)
         # Simple health check call
-        client.get_collections()
+        check_client.get_collections()
         print(f"[Qdrant] Connected to server at {host}:{port}")
-        return client
+        # Create operational client with a much longer timeout (60 seconds) to avoid read timeouts during large batch updates
+        _qdrant_client_instance = QdrantClient(host=host, port=port, timeout=60.0, check_compatibility=False)
+        return _qdrant_client_instance
     except Exception as e:
         db_path = PROJECT_ROOT / "data" / "qdrant_db"
         print(f"[Qdrant] Could not connect to server at {host}:{port} ({e}).")
         print(f"[Qdrant] Falling back to Local Disk storage mode at: {db_path}")
         os.makedirs(db_path.parent, exist_ok=True)
-        return QdrantClient(path=str(db_path))
+        try:
+            _qdrant_client_instance = QdrantClient(path=str(db_path))
+            return _qdrant_client_instance
+        except Exception as lock_err:
+            print(f"[Qdrant] Local Disk storage is locked ({lock_err}). Falling back to clean In-Memory mode.")
+            _qdrant_client_instance = QdrantClient(location=":memory:")
+            return _qdrant_client_instance
 
 def create_collection_if_not_exists(client: QdrantClient):
     """
@@ -171,10 +191,10 @@ def run_indexing_pipeline(limit: int = None):
                 )
             )
             
-        # Upsert to Qdrant
+        # Upsert to Qdrant asynchronously to boost indexing speed and prevent HTTP timeouts
         client.upsert(
             collection_name=COLLECTION_NAME,
-            wait=True,
+            wait=False,
             points=points
         )
         
