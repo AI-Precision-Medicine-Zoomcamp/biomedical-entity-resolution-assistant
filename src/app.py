@@ -18,7 +18,7 @@ from src.tools import generate_report
 
 # 1. Page Configuration and Theming
 st.set_page_config(
-    page_title="Biomedical Agent",
+    page_title="Biomedical Entity Resolution Assistant",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -37,16 +37,22 @@ st.markdown("""
         background-color: transparent !important;
         box-shadow: none !important;
         border: none !important;
+        display: flex !important;
+        visibility: visible !important;
+        z-index: 99999 !important;
     }
     
-    button[data-testid="stSidebarCollapsedControl"] {
+    button[data-testid="stSidebarCollapsedControl"], [data-testid="collapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
         background-color: #212121 !important;
         color: #ececec !important;
         border: 1px solid #424242 !important;
         border-radius: 8px !important;
         transition: background-color 0.2s ease !important;
+        z-index: 100000 !important;
     }
-    button[data-testid="stSidebarCollapsedControl"]:hover {
+    button[data-testid="stSidebarCollapsedControl"]:hover, [data-testid="collapsedControl"]:hover {
         background-color: #2f2f2f !important;
     }
     
