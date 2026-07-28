@@ -11,8 +11,8 @@ services:
       - ENV=development
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      
     depends_on:
       - qdrant
     restart: always
@@ -26,8 +26,7 @@ services:
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
       - qdrant
     command: ["streamlit", "run", "src/app.py", "--server.port=8501", "--server.address=0.0.0.0"]

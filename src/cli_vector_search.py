@@ -9,6 +9,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+# Mock torchvision before other imports
+import src.utils.mock_torchvision
+
+from src.embeddings.embedder import BiomedicalEmbedder
+from qdrant_client import QdrantClient
 from src.retrieval.embed_and_index import get_qdrant_client, COLLECTION_NAME, MODEL_HF_ID
 
 def vector_search(query: str, top_k: int = 5):

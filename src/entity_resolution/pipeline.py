@@ -28,72 +28,8 @@ class BiomedicalEntityResolverPipeline:
         self.confidence_estimator = ConfidenceEstimator()
         self.explanation_generator = ExplanationGenerator()
         
-        # Static clinical fallbacks for robustness when running on partial ontology indexing
-        self.fallbacks = {
-            "mi": {
-                "identifier": "MESH:D009203",
-                "canonical_name": "Myocardial Infarction",
-                "description": "Necrosis of the myocardium, as a result of interruption of the blood supply to the area. It is characterized by atypical chest pain, electrocardiographic changes, and an increase in intracellular enzymes in the blood.",
-                "entity_type": "Disease",
-                "source": "MeSH",
-                "synonyms": "MI|Heart Attack|Myocardial Infarctions|Myocardial Infarct",
-                "retrieval_method": "id_match"
-            },
-            "tylenol": {
-                "identifier": "RXCUI:161",
-                "canonical_name": "Acetaminophen",
-                "description": "An analgesic and antipyretic drug used to treat mild to moderate pain and fever.",
-                "entity_type": "Medication",
-                "source": "RxNorm",
-                "synonyms": "Tylenol|Paracetamol|Panadol|Acetaminophen",
-                "retrieval_method": "id_match"
-            },
-            "tp53": {
-                "identifier": "HGNC:11998",
-                "canonical_name": "Tumor Protein P53",
-                "description": "tumor protein p53",
-                "entity_type": "Gene",
-                "source": "HGNC",
-                "synonyms": "TP53|p53|LFS1|TRP53",
-                "retrieval_method": "id_match"
-            },
-            "her1": {
-                "identifier": "HGNC:3236",
-                "canonical_name": "EGFR",
-                "description": "epidermal growth factor receptor",
-                "entity_type": "Gene",
-                "source": "HGNC",
-                "synonyms": "ERBB|ERBB1|ERRP|HER1",
-                "retrieval_method": "id_match"
-            },
-            "egfr": {
-                "identifier": "HGNC:3236",
-                "canonical_name": "EGFR",
-                "description": "epidermal growth factor receptor",
-                "entity_type": "Gene",
-                "source": "HGNC",
-                "synonyms": "ERBB|ERBB1|ERRP|HER1|EGFR",
-                "retrieval_method": "id_match"
-            },
-            "nsclc": {
-                "identifier": "MESH:D002289",
-                "canonical_name": "Non-Small Cell Lung Cancer",
-                "description": "A group of at least three distinct types of lung cancer, including squamous cell carcinoma, adenocarcinoma, and large cell carcinoma.",
-                "entity_type": "Disease",
-                "source": "MeSH",
-                "synonyms": "NSCLC|Non-Small Cell Lung Carcinoma|Non-Small-Cell Lung Cancer",
-                "retrieval_method": "id_match"
-            },
-            "ex19del": {
-                "identifier": "ClinVar:16209",
-                "canonical_name": "EGFR Exon 19 Deletion",
-                "description": "Deletions in exon 19 of the EGFR gene, commonly associated with non-small cell lung cancer sensitivity to tyrosine kinase inhibitors.",
-                "entity_type": "Variant",
-                "source": "ClinVar",
-                "synonyms": "Ex19del|EGFR Exon 19 Deletion|exon 19 deletion",
-                "retrieval_method": "id_match"
-            }
-        }
+        # Removed static clinical fallbacks
+        pass
 
     def normalize_mention(self, text: str) -> str:
         """
@@ -120,29 +56,16 @@ class BiomedicalEntityResolverPipeline:
             start_char = item["start_char"]
             end_char = item["end_char"]
             
-            mention_lower = mention.lower().strip()
             normalized_mention = self.normalize_mention(mention)
             best_candidate = None
             
-            # Prioritize fallback mapping first to guarantee correct resolutions for standard test cases
-            if mention_lower in self.fallbacks:
-                best_candidate = self.fallbacks[mention_lower].copy()
-                best_candidate["lexical_similarity"] = 1.0
-                best_candidate["exact_match"] = True
-                best_candidate["final_ranking_score"] = 1.0
-            elif normalized_mention in self.fallbacks:
-                best_candidate = self.fallbacks[normalized_mention].copy()
-                best_candidate["lexical_similarity"] = 1.0
-                best_candidate["exact_match"] = True
-                best_candidate["final_ranking_score"] = 1.0
-            else:
-                # Step 2: Retrieve candidate concepts from index
-                candidates = self.retriever.hybrid_search(normalized_mention, limit=10)
-                if candidates:
-                    # Step 3: Rank candidates
-                    ranked_candidates = self.ranker.rank_candidates(normalized_mention, candidates)
-                    if ranked_candidates:
-                        best_candidate = ranked_candidates[0]
+            # Step 2: Retrieve candidate concepts from index
+            candidates = self.retriever.hybrid_search(normalized_mention, limit=10)
+            if candidates:
+                # Step 3: Rank candidates
+                ranked_candidates = self.ranker.rank_candidates(normalized_mention, candidates)
+                if ranked_candidates:
+                    best_candidate = ranked_candidates[0]
 
             # Step 4: Compute confidence and explanation
             if best_candidate:

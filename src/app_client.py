@@ -235,7 +235,7 @@ with st.sidebar:
 col_left, col_right = st.columns([8, 2])
 with col_left:
     status_dot = "active-dot" if backend_online else "inactive-dot"
-    status_text = "Biomedical Agent v1.0" if backend_online else "Agent Offline"
+    status_text = "Biomedical Entity Resolution Assistant v1.0" if backend_online else "Agent Offline"
     st.markdown(f"""
     <div class="model-selector">
         <span class="{status_dot}"></span>

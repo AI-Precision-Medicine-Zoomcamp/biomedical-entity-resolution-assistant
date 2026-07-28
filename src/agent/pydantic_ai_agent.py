@@ -10,6 +10,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+from dotenv import load_dotenv
+load_dotenv(PROJECT_ROOT / ".env")
+
 from src.conversation.history import ConversationHistory
 from src.agent.planner import AgentPlanner
 from src.agent.prompts import SYSTEM_PROMPT
@@ -28,16 +31,16 @@ class AgentResponseModel(BaseModel):
 def get_pydantic_ai_model():
     """
     Initializes appropriate Pydantic AI model based on environment config.
-    Falls back to Pydantic AI TestModel if offline/unauthenticated.
     """
-    if os.getenv("OPENAI_API_KEY"):
-        return "openai:gpt-4o"
+    if os.getenv("GROQ_API_KEY"):
+        return "groq:llama-3.1-8b-instant"
     elif os.getenv("GEMINI_API_KEY"):
-        return "gemini:gemini-1.5-flash"
+        return "gemini-1.5-flash"
+    elif os.getenv("OPENAI_API_KEY"):
+        return "openai:gpt-4o-mini"
     else:
-        # Return Pydantic AI's built-in TestModel for offline testing/validation
-        from pydantic_ai.models.test import TestModel
-        return TestModel()
+        # Default to Groq model string (will raise missing key error at runtime)
+        return "groq:llama-3.1-8b-instant"
 
 model = get_pydantic_ai_model()
 
@@ -97,9 +100,7 @@ class PydanticAIBiomedicalAgent:
 
     def process_query(self, query: str, session_id: str = None) -> dict:
         """
-        Executes the agent loop. If running offline/TestModel, uses the deterministic
-        planner to execute the planned tools and mock-construct the structured response.
-        If a live model is available, delegates to Pydantic AI agent run.
+        Executes the agent loop using the live LLM.
         """
         if not session_id:
             session_id = str(uuid.uuid4())
@@ -108,53 +109,18 @@ class PydanticAIBiomedicalAgent:
         enriched_query = self.planner.resolve_pronouns(query, session_id)
 
         # 2. Run Agent
-        # If we are using a real model, we run it through pydantic_agent.run_sync
-        # If we are using TestModel, we execute the deterministic tool flow to simulate the run
-        is_mock = isinstance(pydantic_agent.model, TestModel) if hasattr(pydantic_agent, 'model') else True
-        if not is_mock:
-            try:
-                result = pydantic_agent.run_sync(enriched_query)
-                data = result.data
-                intent = data.intent
-                resolved_entities = data.resolved_entities
-                report = data.report
-            except Exception as e:
-                # Fallback to deterministic run if real run fails
-                print(f"Pydantic AI real run failed: {e}. Falling back to deterministic plan.", file=sys.stderr)
-                is_mock = True
+        # Validate that we have API keys configured
+        if not os.getenv("GROQ_API_KEY") and not os.getenv("GEMINI_API_KEY") and not os.getenv("OPENAI_API_KEY"):
+            raise ValueError(
+                "No API Key configured. Please set GROQ_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY in your environment."
+            )
 
-        if is_mock:
-            # Deterministic/Offline local simulation
-            plan = self.planner.create_plan(query, session_id)
-            context = {"concepts": [], "literature": [], "comparison": None}
-            
-            # Execute steps
-            for step in plan["steps"]:
-                tname = step["tool"]
-                args = step.get("args", {}).copy()
-                
-                if tname == "retrieve_concept":
-                    res = retrieve_concept(**args)
-                    if res:
-                        context["concepts"].append(res)
-                elif tname == "search_literature":
-                    res = search_literature(**args)
-                    if res:
-                        context["literature"].extend(res)
-                elif tname == "compare_entities":
-                    if len(context["concepts"]) >= 2:
-                        res = compare_entities(context["concepts"][0], context["concepts"][1])
-                        context["comparison"] = res
-                elif tname == "generate_report":
-                    args["literature_results"] = context["literature"]
-                    if context["comparison"]:
-                        args["comparison_results"] = context["comparison"]
-                    res = generate_report(**args)
-                    context["report"] = res
-
-            intent = plan["intent"]
-            resolved_entities = plan["resolved_entities"]
-            report = context.get("report", "No report generated.")
+        # Run the live agent
+        result = pydantic_agent.run_sync(enriched_query)
+        data = result.data
+        intent = data.intent
+        resolved_entities = data.resolved_entities
+        report = data.report
 
         # 3. Store in history
         self.history_manager.add_turn(
@@ -173,10 +139,3 @@ class PydanticAIBiomedicalAgent:
             "report": report,
             "system_prompt": SYSTEM_PROMPT
         }
-
-# Import TestModel at top-level if needed
-try:
-    from pydantic_ai.models.test import TestModel
-except ImportError:
-    class TestModel:
-        pass

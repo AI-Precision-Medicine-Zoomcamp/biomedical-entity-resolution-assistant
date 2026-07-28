@@ -6,6 +6,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+# Mock torchvision before other imports
+import src.utils.mock_torchvision
+
 from src.retrieval.rag_pipeline import BiomedicalRetriever
 
 def run_hybrid_search_cli(query: str):

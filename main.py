@@ -1,5 +1,22 @@
+import sys
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Add project root to path
+PROJECT_ROOT = Path(__file__).resolve().parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
+load_dotenv(PROJECT_ROOT / ".env")
+
+# Mock torchvision before any other imports
+import src.utils.mock_torchvision
+
 import uvicorn
-from fastapi import FastAPI
+try:
+    from fastapi import FastAPI
+except ImportError:  # pragma: no cover
+    from starlette.applications import Starlette as FastAPI
 from pydantic import BaseModel
 
 
@@ -67,44 +84,15 @@ def resolve_entity(request: ResolutionRequest):
             source=best_match["source"]
         )
         
-    # Fallback to hardcoded mock mappings to guarantee that current test suites pass
-    query_upper = query.upper().strip()
-    if query_upper in ["HER1", "ERBB1", "EGFR"]:
-        return ResolutionResponse(
-            query=query,
-            canonical_name="EGFR",
-            entity_type="Gene",
-            identifier="HGNC:3236",
-            confidence=0.99,
-            source="HGNC"
-        )
-    elif query_upper in ["NSCLC", "NON-SMALL CELL LUNG CANCER"]:
-        return ResolutionResponse(
-            query=query,
-            canonical_name="Non-Small Cell Lung Cancer",
-            entity_type="Disease",
-            identifier="MESH:D002289",
-            confidence=0.95,
-            source="MeSH"
-        )
-    elif query_upper in ["EX19DEL", "EGFR EXON 19 DELETION"]:
-        return ResolutionResponse(
-            query=query,
-            canonical_name="EGFR Exon 19 Deletion",
-            entity_type="Variant",
-            identifier="ClinVar:16209",
-            confidence=0.90,
-            source="ClinVar"
-        )
-    else:
-        return ResolutionResponse(
-            query=query,
-            canonical_name=query,
-            entity_type="Unknown",
-            identifier="Unknown",
-            confidence=0.0,
-            source="None"
-        )
+    # No candidates found, return a default unknown response
+    return ResolutionResponse(
+        query=query,
+        canonical_name=query,
+        entity_type="Unknown",
+        identifier="Unknown",
+        confidence=0.0,
+        source="None"
+    )
 
 
 @app.get("/search", response_model=SearchResponse)

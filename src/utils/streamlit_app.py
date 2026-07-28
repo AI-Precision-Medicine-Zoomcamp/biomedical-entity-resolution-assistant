@@ -28,44 +28,16 @@ if st.button("Resolve Entity", type="primary"):
                 result = response.json()
             else:
                 raise Exception("API returned non-200 status code")
-        except Exception:
-            # Fallback to direct resolution
-            if query_upper in ["HER1", "ERBB1", "EGFR"]:
-                result = {
-                    "query": query,
-                    "canonical_name": "EGFR",
-                    "entity_type": "Gene",
-                    "identifier": "HGNC:3236",
-                    "confidence": 0.99,
-                    "source": "HGNC"
-                }
-            elif query_upper in ["NSCLC", "NON-SMALL CELL LUNG CANCER"]:
-                result = {
-                    "query": query,
-                    "canonical_name": "Non-Small Cell Lung Cancer",
-                    "entity_type": "Disease",
-                    "identifier": "MONDO:0008903",
-                    "confidence": 0.95,
-                    "source": "MONDO"
-                }
-            elif query_upper in ["EX19DEL", "EGFR EXON 19 DELETION"]:
-                result = {
-                    "query": query,
-                    "canonical_name": "EGFR Exon 19 Deletion",
-                    "entity_type": "Variant",
-                    "identifier": "ClinVar:16209",
-                    "confidence": 0.90,
-                    "source": "ClinVar"
-                }
-            else:
-                result = {
-                    "query": query,
-                    "canonical_name": query,
-                    "entity_type": "Unknown",
-                    "identifier": "Unknown",
-                    "confidence": 0.0,
-                    "source": "None"
-                }
+        except Exception as e:
+            st.error(f"Error connecting to local resolve API: {e}")
+            result = {
+                "query": query,
+                "canonical_name": query,
+                "entity_type": "Unknown",
+                "identifier": "Unknown",
+                "confidence": 0.0,
+                "source": "None"
+            }
         
         # Display results nicely
         col1, col2 = st.columns(2)
