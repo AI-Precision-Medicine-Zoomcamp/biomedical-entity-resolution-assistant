@@ -2,6 +2,7 @@ import os
 import sys
 import uuid
 from pathlib import Path
+from typing import Optional, List
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 
@@ -34,13 +35,13 @@ def get_pydantic_ai_model():
     """
     if os.getenv("GROQ_API_KEY"):
         return "groq:llama-3.3-70b-versatile"
-    elif os.getenv("GEMINI_API_KEY"):
-        return "gemini-1.5-flash"
-    elif os.getenv("OPENAI_API_KEY"):
-        return "openai:gpt-4o-mini"
-    else:
-        # Default to Groq model string (will raise missing key error at runtime)
-        return "groq:llama-3.3-70b-versatile"
+    # elif os.getenv("GEMINI_API_KEY"):
+    #     return "gemini-1.5-flash"
+    # elif os.getenv("OPENAI_API_KEY"):
+    #     return "openai:gpt-4o-mini"
+    # else:
+    #     # Default to Groq model string (will raise missing key error at runtime)
+    #     return "groq:llama-3.3-70b-versatile"
 
 model = get_pydantic_ai_model()
 
@@ -51,42 +52,64 @@ pydantic_agent = Agent(
     system_prompt=SYSTEM_PROMPT
 )
 
+# Input schemas for agent tools to prevent LLM validation errors
+class ResolveEntityArgs(BaseModel):
+    text: str = Field(description="The clinical query text to extract and resolve entities from.")
+
+class RetrieveConceptArgs(BaseModel):
+    concept_id: str = Field(description="The concept identifier (e.g. MESH:D009203 or RXCUI:161) to retrieve.")
+
+class SearchLiteratureArgs(BaseModel):
+    query: str = Field(description="The query string to search for literature citations.")
+    limit: int = Field(default=3, description="The maximum number of citation results to return.")
+
+class CompareEntitiesArgs(BaseModel):
+    entity_a: dict = Field(description="The first resolved entity concept dictionary.")
+    entity_b: dict = Field(description="The second resolved entity concept dictionary.")
+
+class GenerateReportArgs(BaseModel):
+    query_text: str = Field(description="The original user query text.")
+    resolved_entities: list[dict] = Field(description="List of resolved entity dictionaries.")
+    literature_results: Optional[list[dict]] = Field(default=None, description="Optional retrieved literature citations.")
+    comparison_results: Optional[dict] = Field(default=None, description="Optional comparison analysis results.")
+
 # Register Tools with Pydantic AI Agent
 @pydantic_agent.tool
-def tool_resolve_entity(ctx: RunContext, text: str) -> list[dict]:
+def tool_resolve_entity(ctx: RunContext, args: ResolveEntityArgs) -> list[dict]:
     """
     Resolves biomedical entities in the input text using the entity resolution pipeline.
     """
-    return resolve_entity(text)
+    return resolve_entity(args.text)
 
 @pydantic_agent.tool
-def tool_retrieve_concept(ctx: RunContext, concept_id: str) -> dict:
+def tool_retrieve_concept(ctx: RunContext, args: RetrieveConceptArgs) -> dict:
     """
     Retrieves full concept metadata (canonical name, description, ontology, synonyms)
     for a specific ontology concept identifier.
     """
-    return retrieve_concept(concept_id)
+    return retrieve_concept(args.concept_id)
 
 @pydantic_agent.tool
-def tool_search_literature(ctx: RunContext, query: str, limit: int = 3) -> list[dict]:
+def tool_search_literature(ctx: RunContext, args: SearchLiteratureArgs) -> list[dict]:
     """
     Queries scientific literature (NCBI PubMed database) for publications.
     """
-    return search_literature(query, limit)
+    return search_literature(args.query, args.limit)
 
 @pydantic_agent.tool
-def tool_compare_entities(ctx: RunContext, entity_a: dict, entity_b: dict) -> dict:
+def tool_compare_entities(ctx: RunContext, args: CompareEntitiesArgs) -> dict:
     """
     Compares two resolved entity definitions by comparing their types, ontology sources, etc.
     """
-    return compare_entities(entity_a, entity_b)
+    return compare_entities(args.entity_a, args.entity_b)
 
 @pydantic_agent.tool
-def tool_generate_report(ctx: RunContext, query_text: str, resolved_entities: list[dict], literature_results: list[dict] = None, comparison_results: dict = None) -> str:
+def tool_generate_report(ctx: RunContext, args: GenerateReportArgs) -> str:
     """
     Generates a structured clinical Markdown report summarizing resolved entities and literature.
     """
-    return generate_report(query_text, resolved_entities, literature_results, comparison_results)
+    return generate_report(args.query_text, args.resolved_entities, args.literature_results, args.comparison_results)
+
 
 
 class PydanticAIBiomedicalAgent:

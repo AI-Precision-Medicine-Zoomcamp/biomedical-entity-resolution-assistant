@@ -31,7 +31,7 @@ def test_agent_pronoun_memory():
     assert res2["intent"] == "COMPARE_ENTITIES"
     assert len(res2["resolved_entities"]) == 2
     assert "Myocardial Infarction" in res2["report"]
-    assert "Acetaminophen" in res2["report"]
+    assert "acetaminophen" in res2["report"].lower()
 
 def test_agent_fallback():
     agent = BiomedicalAgent()

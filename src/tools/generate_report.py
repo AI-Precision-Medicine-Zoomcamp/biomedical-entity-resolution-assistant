@@ -19,7 +19,11 @@ def generate_report(query_text: str, resolved_entities: list[dict], literature_r
     
     # 1. Executive Summary
     report.append("## 1. Executive Summary")
-    entity_names = [e.get("canonical_name", e.get("mention")) for e in resolved_entities]
+    entity_names = []
+    for e in resolved_entities:
+        name = e.get("canonical_name") or e.get("canonical") or e.get("mention")
+        if name:
+            entity_names.append(str(name))
     if entity_names:
         summary_str = f"The clinical extraction pipeline successfully identified and resolved {len(resolved_entities)} biomedical concepts: **{', '.join(entity_names)}**."
     else:
@@ -41,9 +45,24 @@ def generate_report(query_text: str, resolved_entities: list[dict], literature_r
             report.append(f"| `{mention}` | **{canonical}** | {etype} | `{oid}` | {conf} | **{status}** |")
         report.append("\n### Detailed Explanations")
         for ent in resolved_entities:
-            canonical = ent.get("canonical_name", "")
+            canonical = ent.get("canonical_name", ent.get("canonical", ""))
             explanation = ent.get("explanation", "No justification provided.")
-            reasons = ", ".join(ent.get("reason", []))
+            reasons_raw = ent.get("reason", [])
+            if isinstance(reasons_raw, str):
+                reasons = reasons_raw
+            elif isinstance(reasons_raw, list):
+                processed_reasons = []
+                for r in reasons_raw:
+                    if isinstance(r, dict):
+                        processed_reasons.extend([str(v) for v in r.values() if v])
+                    else:
+                        processed_reasons.append(str(r))
+                reasons = ", ".join(processed_reasons)
+            elif isinstance(reasons_raw, dict):
+                reasons = ", ".join([str(v) for v in reasons_raw.values() if v])
+            else:
+                reasons = str(reasons_raw) if reasons_raw is not None else ""
+
             report.append(f"- **{canonical}**: {explanation}")
             if reasons:
                 report.append(f"  *Justifications:* {reasons}")

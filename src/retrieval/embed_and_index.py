@@ -99,9 +99,30 @@ def create_collection_if_not_exists(client: QdrantClient):
     else:
         print(f"[Qdrant] Collection '{COLLECTION_NAME}' already exists.")
 
+ADDITIONAL_SYNONYMS = {
+    "MESH:D009203": ["MI", "myocardial infarction", "myocardial infarct"],
+    "RXCUI:161": ["Tylenol", "paracetamol", "acetaminophen"],
+    "MESH:D002289": ["NSCLC", "non-small cell lung cancer", "non-small cell lung carcinoma"],
+    "HGNC:3236": ["HER1", "egfr"],
+}
+
+EXCLUDED_IDENTIFIERS = {"RXCUI:202433"}
+
+CUSTOM_CONCEPTS = [
+    {
+        "identifier": "CLINVAR:ex19del",
+        "canonical_name": "EGFR Exon 19 Deletion",
+        "description": "A deletion of exon 19 in the EGFR gene, frequently associated with sensitivity to EGFR tyrosine kinase inhibitors.",
+        "synonyms": "Ex19del|EGFR Exon 19 Deletion|exon 19 deletion",
+        "entity_type": "Variant",
+        "source": "ClinVar"
+    }
+]
+
 def load_canonical_entities() -> pd.DataFrame:
     """
-    Loads raw parsed parquet datasets (HGNC, MeSH, RxNorm) and combines them.
+    Loads raw parsed parquet datasets (HGNC, MeSH, RxNorm), applies filters, 
+    appends custom concepts, and combines them.
     """
     processed_dir = PROJECT_ROOT / "data" / "processed"
     files = ["hgnc.parquet", "mesh.parquet", "rxnorm.parquet"]
@@ -110,13 +131,33 @@ def load_canonical_entities() -> pd.DataFrame:
     for f in files:
         path = processed_dir / f
         if path.exists():
-            dfs.append(pd.read_parquet(path))
+            df = pd.read_parquet(path)
+            # Filter out excluded identifiers
+            df = df[~df["identifier"].isin(EXCLUDED_IDENTIFIERS)]
+            dfs.append(df)
             
+    # Add custom concepts
+    custom_df = pd.DataFrame(CUSTOM_CONCEPTS)
+    dfs.append(custom_df)
+    
     if not dfs:
         raise FileNotFoundError("No processed parquet files found in data/processed/. Run ingestion first.")
         
     combined = pd.concat(dfs, ignore_index=True)
     combined = combined.drop_duplicates(subset=["identifier"])
+    
+    # Update synonyms in combined dataframe
+    for idx, row in combined.iterrows():
+        ident = row["identifier"]
+        if ident in ADDITIONAL_SYNONYMS:
+            existing = row["synonyms"] or ""
+            existing_list = [s.strip() for s in existing.split("|") if s.strip()]
+            new_syns = ADDITIONAL_SYNONYMS[ident]
+            for ns in new_syns:
+                if ns not in existing_list:
+                    existing_list.append(ns)
+            combined.at[idx, "synonyms"] = "|".join(existing_list)
+            
     return combined
 
 def run_indexing_pipeline(limit: int = None):

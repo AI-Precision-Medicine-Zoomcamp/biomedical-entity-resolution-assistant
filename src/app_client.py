@@ -160,15 +160,33 @@ st.markdown("""
         margin-right: 8px;
     }
     
-    /* Chat Input Styling */
-    [data-testid="stChatInput"] {
+    /* ChatGPT-style custom chat input styling */
+    div[data-testid="stChatInput"] {
         background-color: #2f2f2f !important;
-        border: 1px solid #424242 !important;
-        border-radius: 24px !important;
+        border: 1px solid #4f4f4f !important;
+        border-radius: 28px !important;
+        padding: 6px 12px !important;
+        transition: border-color 0.2s, box-shadow 0.2s !important;
     }
-    [data-testid="stChatInput"] textarea {
+    div[data-testid="stChatInput"]:focus-within {
+        border-color: #10a37f !important;
+        box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.2) !important;
+    }
+    div[data-testid="stChatInput"] textarea {
+        background-color: transparent !important;
+        border: none !important;
         color: #ececec !important;
-        font-size: 14px !important;
+        font-size: 15px !important;
+        border-radius: 28px !important;
+        padding-left: 10px !important;
+    }
+    div[data-testid="stChatInput"] button {
+        border-radius: 50% !important;
+        background-color: #10a37f !important;
+        color: white !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -247,46 +265,160 @@ with col_right:
 
 st.markdown("<div style='height: 1px; background-color: #2f2f2f; margin-bottom: 1.5rem;'></div>", unsafe_allow_html=True)
 
-# 6. Chat History Render
-for message in st.session_state.messages:
-    avatar = "👤" if message["role"] == "user" else "🧬"
-    with st.chat_message(message["role"], avatar=avatar):
-        if message["role"] == "user":
-            st.markdown(message["content"])
-        else:
-            res_meta = message.get("metadata", {})
-            intent = res_meta.get("intent", "COMPLEX_AGENT")
-            
-            # Sub-info/routing details rendered minimally
-            if intent == "SIMPLE_RESOLUTION":
-                st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>⚡ <em>Deterministic Module 2 Resolution</em></p>", unsafe_allow_html=True)
+# 6. Chat History Render or Empty State
+if not st.session_state.messages:
+    # Override chat input position to be vertically centered on the page when empty
+    st.markdown("""
+    <style>
+        div[data-testid="stChatInput"] {
+            position: fixed !important;
+            bottom: 30% !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            width: calc(100% - 40px) !important;
+            max-width: 680px !important;
+            z-index: 1000 !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+        }
+        .block-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 80vh;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Large emoji and heading
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 2.5rem; margin-top: -50px;">
+        <span style="font-size: 64px;">🧬</span>
+        <h1 style="font-size: 32px; font-weight: 700; margin-top: 1rem; color: #ececec; letter-spacing: -0.5px;">How can I help you today?</h1>
+        <p style="color: #b4b4b4; font-size: 15px; max-width: 500px; margin: 0.5rem auto 0 auto; line-height: 1.5;">
+            Resolve clinical mentions, map gene symbols, fetch PubMed literature, or run comparative analyses.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Custom styling for card buttons to make them look premium
+    st.markdown("""
+    <style>
+        div[data-testid="column"] div.stButton > button {
+            background-color: #2f2f2f !important;
+            color: #ececec !important;
+            border: 1px solid #3c3c3c !important;
+            border-radius: 12px !important;
+            padding: 16px 20px !important;
+            text-align: left !important;
+            min-height: 85px !important;
+            width: 100% !important;
+            transition: background-color 0.2s, border-color 0.2s, transform 0.1s !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        div[data-testid="column"] div.stButton > button:hover {
+            background-color: #383838 !important;
+            border-color: #555555 !important;
+            transform: translateY(-1px);
+        }
+        div[data-testid="column"] div.stButton > button:active {
+            transform: translateY(0);
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<p style='font-size: 11px; font-weight: 600; color: #777; text-align: center; text-transform: uppercase; margin-bottom: 1.5rem; letter-spacing: 0.5px;'>Suggested Actions</p>", unsafe_allow_html=True)
+    
+    cols = st.columns(2)
+    prompts = [
+        {"title": "🔍 Explain Entity", "desc": "Explain clinical entity 'MI'", "query": "Explain MI"},
+        {"title": "⚖️ Compare Entities", "desc": "Compare Tylenol with Advil", "query": "Compare Tylenol with Advil"},
+        {"title": "🧬 Resolve Gene symbol", "desc": "Normalize 'TP53' to HGNC canonical", "query": "Resolve gene symbol TP53"},
+        {"title": "📚 Search PubMed Literature", "desc": "Fetch articles on Acetaminophen safety", "query": "Search PubMed for Acetaminophen safety"}
+    ]
+    for idx, p in enumerate(prompts):
+        with cols[idx % 2]:
+            # Styled card button layout
+            button_label = f"**{p['title']}**\n{p['desc']}"
+            if st.button(button_label, key=f"suggest_{idx}", use_container_width=True):
+                st.session_state.suggested_query = p["query"]
+                st.rerun()
+
+    # Extra spacing so the input is placed nicely below suggestions
+    st.markdown("<div style='height: 180px;'></div>", unsafe_allow_html=True)
+
+else:
+    # Standard ChatGPT bottom-aligned layout
+    st.markdown("""
+    <style>
+        div[data-testid="stChatInput"] {
+            position: fixed !important;
+            bottom: 25px !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            width: calc(100% - 40px) !important;
+            max-width: 760px !important;
+            z-index: 1000 !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+        }
+        .block-container {
+            padding-bottom: 120px !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    for message in st.session_state.messages:
+        avatar = "👤" if message["role"] == "user" else "🧬"
+        with st.chat_message(message["role"], avatar=avatar):
+            if message["role"] == "user":
+                st.markdown(message["content"])
             else:
-                st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>🧠 <em>Biomedical Agent RAG reasoning loop</em></p>", unsafe_allow_html=True)
+                res_meta = message.get("metadata", {})
+                intent = res_meta.get("intent", "COMPLEX_AGENT")
                 
-            # Main text content
-            st.markdown(message["content"])
-            
-            # Horizontal minimal entity pills
-            entities = res_meta.get("resolved_entities", [])
-            if entities:
-                st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-                pills_html = ""
-                for ent in entities:
-                    status = ent.get("status", "resolved")
-                    pill_class = "pill-resolved" if status == "resolved" else ("pill-review" if status == "needs_review" else "pill-rejected")
+                # Sub-info/routing details rendered minimally
+                if intent == "SIMPLE_RESOLUTION":
+                    st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>⚡ <em>Deterministic Module 2 Resolution</em></p>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>🧠 <em>Biomedical Agent RAG reasoning loop</em></p>", unsafe_allow_html=True)
                     
-                    pill_text = f"{ent.get('ontology')}: {ent.get('mention')} ➜ {ent.get('canonical_name', ent.get('canonical'))} ({ent.get('identifier', ent.get('concept_id'))})"
-                    pills_html += f"<span class='micro-pill {pill_class}'>{pill_text}</span>"
-                    
-                st.markdown(pills_html, unsafe_allow_html=True)
+                # Main text content
+                st.markdown(message["content"])
+                
+                # Horizontal minimal entity pills
+                entities = res_meta.get("resolved_entities", [])
+                if entities:
+                    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+                    pills_html = ""
+                    for ent in entities:
+                        status = ent.get("status", "resolved")
+                        pill_class = "pill-resolved" if status == "resolved" else ("pill-review" if status == "needs_review" else "pill-rejected")
+                        
+                        pill_text = f"{ent.get('ontology')}: {ent.get('mention')} ➜ {ent.get('canonical_name', ent.get('canonical'))} ({ent.get('identifier', ent.get('concept_id'))})"
+                        pills_html += f"<span class='micro-pill {pill_class}'>{pill_text}</span>"
+                        
+                    st.markdown(pills_html, unsafe_allow_html=True)
 
 # 7. Bottom Input Bar & Disclaimer
-if user_query := st.chat_input("Message Biomedical Agent..."):
-    # Append User Message
-    st.session_state.messages.append({"role": "user", "content": user_query})
-    with st.chat_message("user", avatar="👤"):
-        st.markdown(user_query)
+user_query = None
+if "suggested_query" in st.session_state and st.session_state.suggested_query:
+    user_query = st.session_state.suggested_query
+    del st.session_state.suggested_query
+else:
+    user_query = st.chat_input("Message Biomedical Agent...")
 
+if user_query:
+    st.session_state.messages.append({"role": "user", "content": user_query})
+    st.session_state.pending_query = user_query
+    st.rerun()
+
+# If there is a pending query, process it in the new layout phase
+if "pending_query" in st.session_state and st.session_state.pending_query:
+    query_to_process = st.session_state.pending_query
+    del st.session_state.pending_query
+    
     # Process Query via API
     with st.chat_message("assistant", avatar="🧬"):
         if not backend_online:
@@ -304,7 +436,7 @@ if user_query := st.chat_input("Message Biomedical Agent..."):
                     response = requests.post(
                         f"{API_URL}/agent/query",
                         json={
-                            "query": user_query,
+                            "query": query_to_process,
                             "session_id": st.session_state.session_id
                         },
                         timeout=90.0
@@ -359,6 +491,7 @@ if user_query := st.chat_input("Message Biomedical Agent..."):
                     "content": error_msg,
                     "metadata": {}
                 })
+    st.rerun()
 
 # Minimalist floating disclaimer
 st.markdown("""

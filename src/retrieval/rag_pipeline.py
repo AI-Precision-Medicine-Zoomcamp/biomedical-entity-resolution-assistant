@@ -85,6 +85,7 @@ class BiomedicalRetriever(BaseRetrievalService):
                         "description": row.description,
                         "entity_type": row.entity_type,
                         "source": row.source,
+                        "synonyms": "|".join(self.lookup_df[self.lookup_df["identifier"] == row.identifier]["alias"].unique()),
                         "score": 1.0,
                         "match_type": "id_match"
                     }
@@ -112,12 +113,18 @@ class BiomedicalRetriever(BaseRetrievalService):
             score = 1.0 if row.match_type == "canonical" else 0.8
             # Adjust score by position
             score = score / (1 + idx * 0.05)
+            
+            # Fetch all synonyms/aliases from lookup_df
+            syn_aliases = self.lookup_df[self.lookup_df["identifier"] == row.identifier]["alias"].unique()
+            synonyms_str = "|".join(syn_aliases)
+            
             results_list.append({
                 "identifier": row.identifier,
                 "canonical_name": row.canonical_name,
                 "description": row.description,
                 "entity_type": row.entity_type,
                 "source": row.source,
+                "synonyms": synonyms_str,
                 "score": score,
                 "match_type": row.match_type
             })
@@ -155,6 +162,7 @@ class BiomedicalRetriever(BaseRetrievalService):
                 "description": payload["description"],
                 "entity_type": payload["entity_type"],
                 "source": payload["source"],
+                "synonyms": payload.get("synonyms", ""),
                 "score": hit.score,
                 "match_type": "semantic"
             })
@@ -238,6 +246,7 @@ class BiomedicalRetriever(BaseRetrievalService):
                 "description": item["description"],
                 "entity_type": item["entity_type"],
                 "source": item["source"],
+                "synonyms": item.get("synonyms", ""),
                 "score": rrf_score,
                 "retrieval_method": "hybrid (" + "+".join(methods_found) + ")"
             }

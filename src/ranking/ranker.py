@@ -84,7 +84,8 @@ class CandidateRanker:
             
             # Final ranking score combining all signals
             final_score = (0.6 * vector_sim) + (0.3 * text_sim) + (0.1 * alias_bonus)
-            final_score = min(max(final_score, 0.0), 1.0)
+            if exact_canonical_match or exact_synonym_match:
+                final_score += 1.0
             
             # Copy candidate info and attach scores
             cand_info = cand.copy()

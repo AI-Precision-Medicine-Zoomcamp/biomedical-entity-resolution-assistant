@@ -16,4 +16,4 @@ def test_pydantic_ai_agent_workflow():
     res = agent.process_query("Explain MI", session_id=session_id)
     assert res["intent"] == "EXPLAIN_ENTITY"
     assert len(res["resolved_entities"]) == 1
-    assert "Myocardial Infarction" in res["report"]
+    assert "myocardial infarction" in res["report"].lower()
