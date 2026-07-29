@@ -25,33 +25,75 @@ st.set_page_config(
 # Custom ChatGPT-like Dark & Minimalist Theme
 st.markdown("""
 <style>
-    /* Hide Streamlit default styling elements */
-    #MainMenu {visibility: hidden;}
+    /* Hide Streamlit default styling elements but keep toolbar visible for the expand button */
     footer {visibility: hidden;}
-    div[data-testid="stToolbar"] {visibility: hidden !important;}
     div[data-testid="stDecoration"] {visibility: hidden !important;}
+    
+    /* Hide specific deployment/settings actions from toolbar */
+    div[data-testid="stAppDeployButton"], 
+    button[data-testid="stBaseButton-header"],
+    #MainMenu {
+        display: none !important;
+        visibility: hidden !important;
+    }
     
     header[data-testid="stHeader"] {
         background-color: transparent !important;
         box-shadow: none !important;
         border: none !important;
-        display: flex !important;
-        visibility: visible !important;
         z-index: 99999 !important;
+        display: block !important;
+        visibility: visible !important;
     }
     
-    button[data-testid="stSidebarCollapsedControl"], [data-testid="collapsedControl"] {
-        display: flex !important;
-        visibility: visible !important;
-        background-color: #212121 !important;
+    /* Custom Styling for Streamlit's Expand Sidebar Button when collapsed */
+    button[data-testid="stExpandSidebarButton"] {
+        background-color: #2f2f2f !important; /* Lighter background for better contrast against #212121 */
         color: #ececec !important;
-        border: 1px solid #424242 !important;
+        border: 1px solid #4f4f4f !important;
         border-radius: 8px !important;
         transition: background-color 0.2s ease !important;
-        z-index: 100000 !important;
+        z-index: 9999999 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: fixed !important;
+        top: 12px !important;
+        left: 12px !important;
+        width: 40px !important;
+        height: 40px !important;
     }
-    button[data-testid="stSidebarCollapsedControl"]:hover, [data-testid="collapsedControl"]:hover {
+    button[data-testid="stExpandSidebarButton"]:hover {
+        background-color: #383838 !important;
+    }
+    button[data-testid="stExpandSidebarButton"] svg, button[data-testid="stExpandSidebarButton"] span {
+        color: #ececec !important;
+        fill: #ececec !important;
+        visibility: visible !important;
+    }
+    
+    /* Force collapse button inside the sidebar to be visible */
+    div[data-testid="stSidebarCollapseButton"] {
+        visibility: visible !important;
+        display: block !important;
+        opacity: 1 !important;
+    }
+    div[data-testid="stSidebarCollapseButton"] button {
+        visibility: visible !important;
+        display: inline-flex !important;
+        opacity: 1 !important;
+        background-color: transparent !important;
+        border: none !important;
+    }
+    div[data-testid="stSidebarCollapseButton"] button:hover {
         background-color: #2f2f2f !important;
+    }
+    div[data-testid="stSidebarCollapseButton"] button svg {
+        color: #ececec !important;
+        fill: #ececec !important;
     }
     
     /* Main body background to match ChatGPT Dark Mode */
@@ -290,6 +332,11 @@ if not st.session_state.messages:
             max-width: 680px !important;
             z-index: 1000 !important;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+            transition: left 0.3s ease-in-out !important;
+        }
+        /* Shift input right when sidebar is expanded */
+        [data-testid="stSidebar"][aria-expanded="true"] ~ * div[data-testid="stChatInput"] {
+            left: 58% !important;
         }
         .block-container {
             display: flex;
@@ -302,7 +349,7 @@ if not st.session_state.messages:
 
     # Large emoji and heading
     st.markdown("""
-    <div style="text-align: center; margin-bottom: 2.5rem; margin-top: -50px;">
+    <div style="text-align: center; margin-bottom: 1rem; margin-top: -50px;">
         <!-- <span style="font-size: 64px;">🧬</span> -->
         <h1 style="font-size: 32px; font-weight: 700; margin-top: 1rem; color: #ececec; letter-spacing: -0.5px;">How can I help you today?</h1>
         <p style="color: #b4b4b4; font-size: 15px; max-width: 500px; margin: 0.5rem auto 0 auto; line-height: 1.5;">
@@ -344,10 +391,10 @@ if not st.session_state.messages:
     
     cols = st.columns(2)
     prompts = [
-        {"title": "🔍 Explain Entity", "desc": "Explain clinical entity 'MI'", "query": "Explain MI"},
-        {"title": "⚖️ Compare Entities", "desc": "Compare Tylenol with Advil", "query": "Compare Tylenol with Advil"},
-        # {"title": "🧬 Resolve Gene symbol", "desc": "Normalize 'TP53' to HGNC canonical", "query": "Resolve gene symbol TP53"},
-        # {"title": "📚 Search PubMed Literature", "desc": "Fetch articles on Acetaminophen safety", "query": "Search PubMed for Acetaminophen safety"}
+        # {"title": "🔍 Explain Entity", "desc": "Explain clinical entity 'MI'", "query": "Explain MI"},
+        # {"title": "⚖️ Compare Entities", "desc": "Compare Tylenol with Advil", "query": "Compare Tylenol with Advil"},
+        {"title": "🧬 Resolve Gene symbol", "desc": "Normalize 'TP53' to HGNC canonical", "query": "Resolve gene symbol TP53"},
+        {"title": "📚 Search PubMed Literature", "desc": "Fetch articles on Acetaminophen safety", "query": "Search PubMed for Acetaminophen safety"}
     ]
     for idx, p in enumerate(prompts):
         with cols[idx % 2]:
@@ -373,6 +420,11 @@ else:
             max-width: 760px !important;
             z-index: 1000 !important;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+            transition: left 0.3s ease-in-out !important;
+        }
+        /* Shift input right when sidebar is expanded */
+        [data-testid="stSidebar"][aria-expanded="true"] ~ * div[data-testid="stChatInput"] {
+            left: 58% !important;
         }
         .block-container {
             padding-bottom: 120px !important;
