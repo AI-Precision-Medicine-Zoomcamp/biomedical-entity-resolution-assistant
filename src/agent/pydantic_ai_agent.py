@@ -117,7 +117,7 @@ class PydanticAIBiomedicalAgent:
 
         # Run the live agent
         result = pydantic_agent.run_sync(enriched_query)
-        data = result.data
+        data = result.output
         intent = data.intent
         resolved_entities = data.resolved_entities
         report = data.report
