@@ -162,14 +162,14 @@ st.markdown("""
     
     /* ChatGPT-style custom chat input styling */
     div[data-testid="stChatInput"] {
-        background-color: #2f2f2f !important;
+        background-color: #262730 !important;
         border: 1px solid #4f4f4f !important;
         border-radius: 28px !important;
         padding: 6px 12px !important;
         transition: border-color 0.2s, box-shadow 0.2s !important;
     }
     div[data-testid="stChatInput"]:focus-within {
-        border-color: #10a37f !important;
+        
         box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.2) !important;
     }
     div[data-testid="stChatInput"] textarea {
@@ -182,12 +182,23 @@ st.markdown("""
     }
     div[data-testid="stChatInput"] button {
         border-radius: 50% !important;
-        background-color: #10a37f !important;
+        background-color: #4f4f4f !important;
         color: white !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
     }
+
+
+    /* Custom styling for Streamlit's bottom container wrapper */
+    div[data-testid="stBottomBlockContainer"] {
+        background-color: #212121 !important; 
+        background-image: none !important;
+        border: none !important;                  
+        padding-bottom: 20px !important;         
+        box-shadow: none !important;
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -292,7 +303,7 @@ if not st.session_state.messages:
     # Large emoji and heading
     st.markdown("""
     <div style="text-align: center; margin-bottom: 2.5rem; margin-top: -50px;">
-        <span style="font-size: 64px;">🧬</span>
+        <!-- <span style="font-size: 64px;">🧬</span> -->
         <h1 style="font-size: 32px; font-weight: 700; margin-top: 1rem; color: #ececec; letter-spacing: -0.5px;">How can I help you today?</h1>
         <p style="color: #b4b4b4; font-size: 15px; max-width: 500px; margin: 0.5rem auto 0 auto; line-height: 1.5;">
             Resolve clinical mentions, map gene symbols, fetch PubMed literature, or run comparative analyses.
@@ -335,8 +346,8 @@ if not st.session_state.messages:
     prompts = [
         {"title": "🔍 Explain Entity", "desc": "Explain clinical entity 'MI'", "query": "Explain MI"},
         {"title": "⚖️ Compare Entities", "desc": "Compare Tylenol with Advil", "query": "Compare Tylenol with Advil"},
-        {"title": "🧬 Resolve Gene symbol", "desc": "Normalize 'TP53' to HGNC canonical", "query": "Resolve gene symbol TP53"},
-        {"title": "📚 Search PubMed Literature", "desc": "Fetch articles on Acetaminophen safety", "query": "Search PubMed for Acetaminophen safety"}
+        # {"title": "🧬 Resolve Gene symbol", "desc": "Normalize 'TP53' to HGNC canonical", "query": "Resolve gene symbol TP53"},
+        # {"title": "📚 Search PubMed Literature", "desc": "Fetch articles on Acetaminophen safety", "query": "Search PubMed for Acetaminophen safety"}
     ]
     for idx, p in enumerate(prompts):
         with cols[idx % 2]:
@@ -347,7 +358,7 @@ if not st.session_state.messages:
                 st.rerun()
 
     # Extra spacing so the input is placed nicely below suggestions
-    st.markdown("<div style='height: 180px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 180px; background-color: #212121 !important;'></div>", unsafe_allow_html=True)
 
 else:
     # Standard ChatGPT bottom-aligned layout
