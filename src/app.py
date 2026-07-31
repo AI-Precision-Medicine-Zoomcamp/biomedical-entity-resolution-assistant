@@ -574,7 +574,7 @@ if "pending_query" in st.session_state and st.session_state.pending_query:
                         if needs_report:
                             report = generate_report(query_to_process, entities_dict)
                         else:
-                            report = agent.generate_conversational_explanation(query_to_process, entities_dict)
+                            report = generate_conversational_response(query_to_process, resolved_entities_raw)
                         intent = "SIMPLE_RESOLUTION"
                         
                     agent.history_manager.add_turn(

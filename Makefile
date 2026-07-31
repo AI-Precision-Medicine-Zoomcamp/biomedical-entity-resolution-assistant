@@ -1,7 +1,7 @@
 # Biomedical Entity Resolution Assistant Makefile
 # Centralizes all commands for setup, ingestion, execution, testing, and Docker.
 
-.PHONY: help install download-models setup ingest index run-api run-ui test docker-up docker-down clean
+.PHONY: help install download-models setup ingest index run-api run-ui test docker-up docker-down clean benchmark notebook
 
 # Default command: display help menu
 help:
@@ -21,6 +21,10 @@ help:
 	@echo "  make run-api         - Run the FastAPI backend server (port 8000)"
 	@echo "  make run-ui          - Run the Streamlit UI frontend (port 8501)"
 	@echo "  make run-streamlit   - Run the Streamlit full application"
+	@echo ""
+	@echo "Evaluation & Benchmarking:"
+	@echo "  make benchmark       - Run the automated benchmarking suite"
+	@echo "  make notebook        - Launch the evaluation Jupyter notebook server"
 	@echo ""
 	@echo "Testing & Quality:"
 	@echo "  make test            - Run all unit and integration tests with pytest"
@@ -54,6 +58,11 @@ run-ui:
 run-streamlit:
 	uv run streamlit run src/app.py
 
+benchmark:
+	uv run python benchmark.py
+
+notebook:
+	uv run jupyter notebook
 
 test:
 	pytest tests/
