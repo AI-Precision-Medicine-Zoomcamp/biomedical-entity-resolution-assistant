@@ -157,6 +157,20 @@ def tool_generate_report(ctx: RunContext[AgentDeps], args: GenerateReportArgs) -
 
 
 
+# Simple explanation agent that doesn't use tools
+explanation_agent = Agent(
+    model,
+    system_prompt=(
+        "You are a specialized Biomedical Assistant. "
+        "Your task is to write a natural, friendly, and conversational explanation of the user's query "
+        "using the provided resolved biomedical entity details as ground truth context. "
+        "Do NOT output markdown tables. Do NOT output a formal clinical report. "
+        "Write 1-2 natural paragraphs explaining the clinical terms, their clinical significance, and any key highlights. "
+        "Keep it friendly and conversational, like ChatGPT/Gemini."
+    )
+)
+
+
 class PydanticAIBiomedicalAgent:
     """
     Orchestration wrapper around pydantic_agent, supporting pronoun resolution,
@@ -165,6 +179,73 @@ class PydanticAIBiomedicalAgent:
     def __init__(self, history_manager=None):
         self.history_manager = history_manager or ConversationHistory()
         self.planner = AgentPlanner(history_manager=self.history_manager)
+
+    def generate_conversational_explanation(self, query: str, resolved_entities: list) -> str:
+        """
+        Uses a lightweight model call to generate a friendly, natural language
+        conversational explanation of the resolved biomedical entities.
+        """
+        if not resolved_entities:
+            return (
+                "I am a specialized Biomedical Entity Resolution Assistant. I couldn't identify any clinical terms, "
+                "genes, variants, or drugs in your query, which appears to be outside my medical domain. "
+                "Please specify a clinical term or ask a biomedical question!"
+            )
+            
+        context_lines = []
+        for ent in resolved_entities:
+            if isinstance(ent, dict):
+                mention = ent.get("mention", "")
+                canonical = ent.get("canonical_name", ent.get("canonical", ""))
+                etype = ent.get("entity_type", "")
+                oid = ent.get("identifier", ent.get("concept_id", ""))
+                explanation = ent.get("explanation", "")
+            else:
+                mention = getattr(ent, "mention", "")
+                canonical = getattr(ent, "canonical_name", getattr(ent, "canonical", ""))
+                etype = getattr(ent, "entity_type", "")
+                oid = getattr(ent, "identifier", getattr(ent, "concept_id", ""))
+                explanation = getattr(ent, "explanation", "")
+
+            context_lines.append(
+                f"Mention in user query: {mention}\n"
+                f"Canonical Name: {canonical}\n"
+                f"Entity Type: {etype}\n"
+                f"Ontology ID: {oid}\n"
+                f"Ontology Explanation: {explanation}"
+            )
+            
+        entity_context = "\n\n".join(context_lines)
+        prompt = f"User query: {query}\n\nResolved Entities Context:\n{entity_context}"
+        
+        try:
+            result = explanation_agent.run_sync(prompt)
+            return result.data
+        except Exception as e:
+            # Fallback to a structured string if LLM fails
+            parts = []
+            parts.append(f"I analyzed your query and identified the following biomedical concept(s):\n")
+            for ent in resolved_entities:
+                if isinstance(ent, dict):
+                    mention = ent.get("mention", "")
+                    canonical = ent.get("canonical_name", ent.get("canonical", ""))
+                    etype = ent.get("entity_type", "Concept")
+                    oid = ent.get("identifier", ent.get("concept_id", ""))
+                    explanation = ent.get("explanation", "")
+                else:
+                    mention = getattr(ent, "mention", "")
+                    canonical = getattr(ent, "canonical_name", getattr(ent, "canonical", ""))
+                    etype = getattr(ent, "entity_type", "Concept")
+                    oid = getattr(ent, "identifier", getattr(ent, "concept_id", ""))
+                    explanation = getattr(ent, "explanation", "")
+                    
+                parts.append(f"* **Mention:** `{mention}` → **{canonical}** (`{oid}`)")
+                parts.append(f"  * **Type:** {etype}")
+                if explanation:
+                    parts.append(f"  * **Explanation:** {explanation}")
+                    
+            parts.append("\n*If you would like a detailed, formal clinical report with PubMed references, please ask me to 'generate a report'.*")
+            return "\n".join(parts)
 
     def process_query(self, query: str, session_id: str = None) -> dict:
         """
