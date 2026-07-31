@@ -229,6 +229,15 @@ st.markdown("""
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
+        transition: background-color 0.2s, color 0.2s !important;
+    }
+    div[data-testid="stChatInput"]:focus-within button {
+        background-color: #ececec !important;
+        color: #212121 !important;
+    }
+    div[data-testid="stChatInput"]:focus-within button svg {
+        color: #212121 !important;
+        fill: #212121 !important;
     }
 
 
