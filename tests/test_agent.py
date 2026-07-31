@@ -39,3 +39,15 @@ def test_agent_fallback():
     assert res["intent"] == "EXPLAIN_TEXT"
     assert len(res["resolved_entities"]) == 0
     assert "space travel" in res["report"]
+
+def test_agent_standalone_report_resolution():
+    agent = BiomedicalAgent()
+    session_id = "test_session_4"
+    
+    # 1. Ask about MI
+    res1 = agent.process_query("Explain MI", session_id=session_id)
+    assert len(res1["resolved_entities"]) == 1
+    
+    # 2. Command 'generate a report'
+    res2 = agent.process_query("generate a report", session_id=session_id)
+    assert res2["enriched_query"] == "generate a report for Myocardial Infarction"
