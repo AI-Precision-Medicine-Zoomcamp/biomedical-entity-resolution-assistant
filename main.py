@@ -88,6 +88,38 @@ def get_router():
         router_instance = WorkflowRouter()
     return router_instance
 
+def generate_conversational_response(query_text: str, resolved_entities: list) -> str:
+    if not resolved_entities:
+        return (
+            "I am a specialized Biomedical Entity Resolution Assistant. I couldn't identify any clinical terms, "
+            "genes, variants, or drugs in your query, which appears to be outside my medical domain. "
+            "Please specify a clinical term or ask a biomedical question!"
+        )
+    
+    parts = []
+    parts.append(f"I analyzed your query and identified the following biomedical concept(s):\n")
+    for ent in resolved_entities:
+        if isinstance(ent, dict):
+            mention = ent.get("mention", "")
+            canonical = ent.get("canonical_name", ent.get("canonical", ""))
+            etype = ent.get("entity_type", "Concept")
+            oid = ent.get("identifier", "")
+            explanation = ent.get("explanation", "")
+        else:
+            mention = getattr(ent, "mention", "")
+            canonical = getattr(ent, "canonical_name", getattr(ent, "canonical", ""))
+            etype = getattr(ent, "entity_type", "Concept")
+            oid = getattr(ent, "identifier", "")
+            explanation = getattr(ent, "explanation", "")
+            
+        parts.append(f"* **Mention:** `{mention}` → **{canonical}** (`{oid}`)")
+        parts.append(f"  * **Type:** {etype}")
+        if explanation:
+            parts.append(f"  * **Explanation:** {explanation}")
+            
+    parts.append("\n*If you would like a detailed, formal clinical report with PubMed references, please ask me to 'generate a report'.*")
+    return "\n".join(parts)
+
 class TextResolutionRequest(BaseModel):
     text: str
 
@@ -204,7 +236,7 @@ def query_agent_endpoint(request: AgentRequest):
         resolver = get_resolver()
         resolved_entities = resolver.resolve_text(request.query)
         
-        # Convert entities to dict representation for report generation
+        # Convert entities to dict representation
         entities_dict = []
         for ent in resolved_entities:
             if isinstance(ent, dict):
@@ -236,7 +268,24 @@ def query_agent_endpoint(request: AgentRequest):
                     "explanation": getattr(ent, "explanation", "")
                 })
             
-        report = generate_report(request.query, entities_dict)
+        normalized = request.query.lower().strip()
+        needs_report = any(keyword in normalized for keyword in ["report", "table", "markdown", "generate report", "make a report", "clinical report"])
+        
+        # If no entities were extracted, let's treat it as out-of-domain / unresolvable
+        if not resolved_entities:
+            report = (
+                "I am a specialized Biomedical Entity Resolution Assistant. I couldn't identify any clinical terms, "
+                "genes, variants, or drugs in your query, which appears to be outside my medical domain. "
+                "Please specify a clinical term or ask a biomedical question!"
+            )
+            intent = "OUT_OF_DOMAIN"
+        else:
+            if needs_report:
+                report = generate_report(request.query, entities_dict)
+            else:
+                report = generate_conversational_response(request.query, resolved_entities)
+            intent = "SIMPLE_RESOLUTION"
+            
         session_id = request.session_id or str(uuid.uuid4())
         
         # Log to agent memory
@@ -252,7 +301,7 @@ def query_agent_endpoint(request: AgentRequest):
             session_id=session_id,
             original_query=request.query,
             enriched_query=request.query,
-            intent="SIMPLE_RESOLUTION",
+            intent=intent,
             resolved_entities=resolved_entities,
             report=report,
             system_prompt="Deterministic Module 2 Resolver Pipeline (No LLM)"
