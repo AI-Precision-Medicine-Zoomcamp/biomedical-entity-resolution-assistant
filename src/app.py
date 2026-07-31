@@ -18,7 +18,7 @@ from src.tools import generate_report
 
 # 1. Page Configuration and Theming
 st.set_page_config(
-    page_title="Biomedical Entity Resolution Assistant",
+    page_title="Biomedical Agent",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -27,33 +27,75 @@ st.set_page_config(
 # Custom ChatGPT-like Dark & Minimalist Theme
 st.markdown("""
 <style>
-    /* Hide Streamlit default styling elements */
-    #MainMenu {visibility: hidden;}
+    /* Hide Streamlit default styling elements but keep toolbar visible for the expand button */
     footer {visibility: hidden;}
-    div[data-testid="stToolbar"] {visibility: hidden !important;}
     div[data-testid="stDecoration"] {visibility: hidden !important;}
+    
+    /* Hide specific deployment/settings actions from toolbar */
+    div[data-testid="stAppDeployButton"], 
+    button[data-testid="stBaseButton-header"],
+    #MainMenu {
+        display: none !important;
+        visibility: hidden !important;
+    }
     
     header[data-testid="stHeader"] {
         background-color: transparent !important;
         box-shadow: none !important;
         border: none !important;
-        display: flex !important;
-        visibility: visible !important;
         z-index: 99999 !important;
+        display: block !important;
+        visibility: visible !important;
     }
     
-    button[data-testid="stSidebarCollapsedControl"], [data-testid="collapsedControl"] {
-        display: flex !important;
-        visibility: visible !important;
-        background-color: #212121 !important;
+    /* Custom Styling for Streamlit's Expand Sidebar Button when collapsed */
+    button[data-testid="stExpandSidebarButton"] {
+        background-color: #2f2f2f !important; /* Lighter background for better contrast against #212121 */
         color: #ececec !important;
-        border: 1px solid #424242 !important;
+        border: 1px solid #4f4f4f !important;
         border-radius: 8px !important;
         transition: background-color 0.2s ease !important;
-        z-index: 100000 !important;
+        z-index: 9999999 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: fixed !important;
+        top: 12px !important;
+        left: 12px !important;
+        width: 40px !important;
+        height: 40px !important;
     }
-    button[data-testid="stSidebarCollapsedControl"]:hover, [data-testid="collapsedControl"]:hover {
+    button[data-testid="stExpandSidebarButton"]:hover {
+        background-color: #383838 !important;
+    }
+    button[data-testid="stExpandSidebarButton"] svg, button[data-testid="stExpandSidebarButton"] span {
+        color: #ececec !important;
+        fill: #ececec !important;
+        visibility: visible !important;
+    }
+    
+    /* Force collapse button inside the sidebar to be visible */
+    div[data-testid="stSidebarCollapseButton"] {
+        visibility: visible !important;
+        display: block !important;
+        opacity: 1 !important;
+    }
+    div[data-testid="stSidebarCollapseButton"] button {
+        visibility: visible !important;
+        display: inline-flex !important;
+        opacity: 1 !important;
+        background-color: transparent !important;
+        border: none !important;
+    }
+    div[data-testid="stSidebarCollapseButton"] button:hover {
         background-color: #2f2f2f !important;
+    }
+    div[data-testid="stSidebarCollapseButton"] button svg {
+        color: #ececec !important;
+        fill: #ececec !important;
     }
     
     /* Main body background to match ChatGPT Dark Mode */
@@ -153,16 +195,59 @@ st.markdown("""
         display: inline-block;
         margin-right: 8px;
     }
-    
-    /* Chat Input Styling */
-    [data-testid="stChatInput"] {
-        background-color: #2f2f2f !important;
-        border: 1px solid #424242 !important;
-        border-radius: 24px !important;
+    .inactive-dot {
+        height: 6px;
+        width: 6px;
+        background-color: #ef4444;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
     }
-    [data-testid="stChatInput"] textarea {
+    
+    /* ChatGPT-style custom chat input styling */
+    div[data-testid="stChatInput"] {
+        background-color: #262730 !important;
+        border: 1px solid #4f4f4f !important;
+        border-radius: 28px !important;
+        padding: 6px 12px !important;
+        transition: border-color 0.2s, box-shadow 0.2s !important;
+    }
+    div[data-testid="stChatInput"]:focus-within {
+        box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.2) !important;
+    }
+    div[data-testid="stChatInput"] textarea {
+        background-color: transparent !important;
+        border: none !important;
         color: #ececec !important;
-        font-size: 14px !important;
+        font-size: 15px !important;
+        border-radius: 28px !important;
+        padding-left: 10px !important;
+    }
+    div[data-testid="stChatInput"] button {
+        border-radius: 50% !important;
+        background-color: #4f4f4f !important;
+        color: white !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: background-color 0.2s, color 0.2s !important;
+    }
+    div[data-testid="stChatInput"]:focus-within button {
+        background-color: #ececec !important;
+        color: #212121 !important;
+    }
+    div[data-testid="stChatInput"]:focus-within button svg {
+        color: #212121 !important;
+        fill: #212121 !important;
+    }
+
+    /* Custom styling for Streamlit's bottom container wrapper */
+    div[data-testid="stBottomBlockContainer"] {
+        background-color: #212121 !important; 
+        background-image: none !important;
+        border: none !important;                  
+        padding-bottom: 20px !important;         
+        box-shadow: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -230,13 +315,13 @@ with st.sidebar:
     else:
         st.markdown("<p style='font-size: 12px; color: #555; padding-left: 5px;'>No data logged.</p>", unsafe_allow_html=True)
 
-# 5. Top Navigation Selector (Just like Model dropdown in ChatGPT)
+# 5. Top Navigation Selector
 col_left, col_right = st.columns([8, 2])
 with col_left:
     st.markdown("""
     <div class="model-selector">
         <span class="active-dot"></span>
-        <strong style="color: #ececec; font-size: 13px;">Biomedical Agent v1.0</strong>
+        <strong style="color: #ececec; font-size: 13px;">Biomedical Agent v1.0 (Direct Mode)</strong>
     </div>
     """, unsafe_allow_html=True)
 with col_right:
@@ -244,112 +329,231 @@ with col_right:
 
 st.markdown("<div style='height: 1px; background-color: #2f2f2f; margin-bottom: 1.5rem;'></div>", unsafe_allow_html=True)
 
-# 6. Chat History Render
-for message in st.session_state.messages:
-    avatar = "👤" if message["role"] == "user" else "🧬"
-    with st.chat_message(message["role"], avatar=avatar):
-        if message["role"] == "user":
-            st.markdown(message["content"])
-        else:
-            res_meta = message.get("metadata", {})
-            route = res_meta.get("route", "COMPLEX_AGENT")
-            
-            # Sub-info/routing details rendered minimally
-            if route == "SIMPLE_RESOLUTION":
-                st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>⚡ <em>Deterministic Module 2 Resolution</em></p>", unsafe_allow_html=True)
+# 6. Chat History Render or Empty State
+if not st.session_state.messages:
+    # Override chat input position to be vertically centered on the page when empty
+    st.markdown("""
+    <style>
+        div[data-testid="stChatInput"] {
+            position: fixed !important;
+            bottom: 30% !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            width: calc(100% - 40px) !important;
+            max-width: 680px !important;
+            z-index: 1000 !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+            transition: left 0.3s ease-in-out !important;
+        }
+        /* Shift input right when sidebar is expanded */
+        [data-testid="stSidebar"][aria-expanded="true"] ~ * div[data-testid="stChatInput"] {
+            left: 58% !important;
+        }
+        .block-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 80vh;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Large emoji and heading
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 1rem; margin-top: -50px;">
+        <h1 style="font-size: 32px; font-weight: 700; margin-top: 1rem; color: #ececec; letter-spacing: -0.5px;">How can I help you today?</h1>
+        <p style="color: #b4b4b4; font-size: 15px; max-width: 500px; margin: 0.5rem auto 0 auto; line-height: 1.5;">
+            Resolve clinical mentions, map gene symbols, fetch PubMed literature, or run comparative analyses.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Custom styling for card buttons to make them look premium
+    st.markdown("""
+    <style>
+        div[data-testid="column"] div.stButton > button {
+            background-color: #2f2f2f !important;
+            color: #ececec !important;
+            border: 1px solid #3c3c3c !important;
+            border-radius: 12px !important;
+            padding: 16px 20px !important;
+            text-align: left !important;
+            min-height: 85px !important;
+            width: 100% !important;
+            transition: background-color 0.2s, border-color 0.2s, transform 0.1s !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        div[data-testid="column"] div.stButton > button:hover {
+            background-color: #383838 !important;
+            border-color: #555555 !important;
+            transform: translateY(-1px);
+        }
+        div[data-testid="column"] div.stButton > button:active {
+            transform: translateY(0);
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<p style='font-size: 11px; font-weight: 600; color: #777; text-align: center; text-transform: uppercase; margin-bottom: 1.5rem; letter-spacing: 0.5px;'>Suggested Actions</p>", unsafe_allow_html=True)
+    
+    cols = st.columns(2)
+    prompts = [
+        {"title": "🧬 Resolve Gene symbol", "desc": "Normalize 'TP53' to HGNC canonical", "query": "Resolve gene symbol TP53"},
+        {"title": "📚 Search PubMed Literature", "desc": "Fetch articles on Acetaminophen safety", "query": "Search PubMed for Acetaminophen safety"}
+    ]
+    for idx, p in enumerate(prompts):
+        with cols[idx % 2]:
+            button_label = f"**{p['title']}**\n{p['desc']}"
+            if st.button(button_label, key=f"suggest_{idx}", use_container_width=True):
+                st.session_state.suggested_query = p["query"]
+                st.rerun()
+
+    # Extra spacing so the input is placed nicely below suggestions
+    st.markdown("<div style='height: 180px; background-color: #212121 !important;'></div>", unsafe_allow_html=True)
+
+else:
+    # Standard ChatGPT bottom-aligned layout
+    st.markdown("""
+    <style>
+        div[data-testid="stChatInput"] {
+            position: fixed !important;
+            bottom: 25px !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            width: calc(100% - 40px) !important;
+            max-width: 760px !important;
+            z-index: 1000 !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+            transition: left 0.3s ease-in-out !important;
+        }
+        /* Shift input right when sidebar is expanded */
+        [data-testid="stSidebar"][aria-expanded="true"] ~ * div[data-testid="stChatInput"] {
+            left: 58% !important;
+        }
+        .block-container {
+            padding-bottom: 120px !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    for message in st.session_state.messages:
+        avatar = "👤" if message["role"] == "user" else "🧬"
+        with st.chat_message(message["role"], avatar=avatar):
+            if message["role"] == "user":
+                st.markdown(message["content"])
             else:
-                st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>🧠 <em>Biomedical Agent RAG reasoning loop</em></p>", unsafe_allow_html=True)
+                res_meta = message.get("metadata", {})
+                intent = res_meta.get("intent", "COMPLEX_AGENT")
                 
-            # Main text content
-            st.markdown(message["content"])
-            
-            # Horizontal minimal entity pills instead of massive boxes
-            entities = res_meta.get("resolved_entities", [])
-            if entities:
-                st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-                pills_html = ""
-                for ent in entities:
-                    status = ent.get("status", "resolved")
-                    pill_class = "pill-resolved" if status == "resolved" else ("pill-review" if status == "needs_review" else "pill-rejected")
+                # Sub-info/routing details rendered minimally
+                if intent == "SIMPLE_RESOLUTION":
+                    st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>⚡ <em>Deterministic Module 2 Resolution</em></p>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>🧠 <em>Biomedical Agent RAG reasoning loop</em></p>", unsafe_allow_html=True)
                     
-                    pill_text = f"{ent.get('ontology')}: {ent.get('mention')} ➜ {ent.get('canonical_name', ent.get('canonical'))} ({ent.get('identifier', ent.get('concept_id'))})"
-                    pills_html += f"<span class='micro-pill {pill_class}'>{pill_text}</span>"
-                    
-                st.markdown(pills_html, unsafe_allow_html=True)
+                st.markdown(message["content"])
+                
+                # Horizontal minimal entity pills
+                entities = res_meta.get("resolved_entities", [])
+                if entities:
+                    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+                    pills_html = ""
+                    for ent in entities:
+                        status = ent.get("status", "resolved")
+                        pill_class = "pill-resolved" if status == "resolved" else ("pill-review" if status == "needs_review" else "pill-rejected")
+                        
+                        pill_text = f"{ent.get('ontology')}: {ent.get('mention')} ➜ {ent.get('canonical_name', ent.get('canonical'))} ({ent.get('identifier', ent.get('concept_id'))})"
+                        pills_html += f"<span class='micro-pill {pill_class}'>{pill_text}</span>"
+                        
+                    st.markdown(pills_html, unsafe_allow_html=True)
 
 # 7. Bottom Input Bar & Disclaimer
-if user_query := st.chat_input("Message Biomedical Agent..."):
-    # Append User Message
-    st.session_state.messages.append({"role": "user", "content": user_query})
-    with st.chat_message("user", avatar="👤"):
-        st.markdown(user_query)
+user_query = None
+if "suggested_query" in st.session_state and st.session_state.suggested_query:
+    user_query = st.session_state.suggested_query
+    del st.session_state.suggested_query
+else:
+    user_query = st.chat_input("Message Biomedical Agent...")
 
-    # Process Query
+if user_query:
+    st.session_state.messages.append({"role": "user", "content": user_query})
+    st.session_state.pending_query = user_query
+    st.rerun()
+
+# If there is a pending query, process it in the new layout phase
+if "pending_query" in st.session_state and st.session_state.pending_query:
+    query_to_process = st.session_state.pending_query
+    del st.session_state.pending_query
+    
     with st.chat_message("assistant", avatar="🧬"):
         try:
-            route = router.route(user_query)
-            
-            if route == "SIMPLE_RESOLUTION":
-                resolved_entities_raw = resolver.resolve_text(user_query)
-                entities_dict = []
-                for ent in resolved_entities_raw:
-                    if isinstance(ent, dict):
-                        entities_dict.append({
-                            "mention": ent.get("mention", ""),
-                            "canonical_name": ent.get("canonical_name", ent.get("canonical", "")),
-                            "canonical": ent.get("canonical", ""),
-                            "entity_type": ent.get("entity_type", ""),
-                            "identifier": ent.get("identifier", ""),
-                            "concept_id": ent.get("concept_id", ""),
-                            "ontology": ent.get("ontology", ""),
-                            "confidence": ent.get("confidence", 0.0),
-                            "status": ent.get("status", "resolved"),
-                            "reason": ent.get("reason", []),
-                            "explanation": ent.get("explanation", "")
-                        })
-                    else:
-                        entities_dict.append({
-                            "mention": getattr(ent, "mention", ""),
-                            "canonical_name": getattr(ent, "canonical_name", getattr(ent, "canonical", "")),
-                            "canonical": getattr(ent, "canonical", ""),
-                            "entity_type": getattr(ent, "entity_type", ""),
-                            "identifier": getattr(ent, "identifier", ""),
-                            "concept_id": getattr(ent, "concept_id", ""),
-                            "ontology": getattr(ent, "ontology", ""),
-                            "confidence": getattr(ent, "confidence", 0.0),
-                            "status": getattr(ent, "status", "resolved"),
-                            "reason": getattr(ent, "reason", []),
-                            "explanation": getattr(ent, "explanation", "")
-                        })
-                        
-                report = generate_report(user_query, entities_dict)
-                agent.history_manager.add_turn(
-                    session_id=st.session_state.session_id,
-                    user_content=user_query,
-                    assistant_content=report,
-                    resolved_entities=entities_dict
-                )
-                res_payload = {
-                    "session_id": st.session_state.session_id,
-                    "original_query": user_query,
-                    "enriched_query": user_query,
-                    "intent": "SIMPLE_RESOLUTION",
-                    "resolved_entities": entities_dict,
-                    "report": report,
-                    "route": "SIMPLE_RESOLUTION"
-                }
-            else:
-                res = agent.process_query(user_query, session_id=st.session_state.session_id)
-                res_payload = {
-                    "session_id": res["session_id"],
-                    "original_query": res["original_query"],
-                    "enriched_query": res["enriched_query"],
-                    "intent": res["intent"],
-                    "resolved_entities": res["resolved_entities"],
-                    "report": res["report"],
-                    "route": "COMPLEX_AGENT"
-                }
+            with st.spinner(" "):
+                route = router.route(query_to_process)
                 
+                if route == "SIMPLE_RESOLUTION":
+                    resolved_entities_raw = resolver.resolve_text(query_to_process)
+                    entities_dict = []
+                    for ent in resolved_entities_raw:
+                        if isinstance(ent, dict):
+                            entities_dict.append({
+                                "mention": ent.get("mention", ""),
+                                "canonical_name": ent.get("canonical_name", ent.get("canonical", "")),
+                                "canonical": ent.get("canonical", ""),
+                                "entity_type": ent.get("entity_type", ""),
+                                "identifier": ent.get("identifier", ""),
+                                "concept_id": ent.get("concept_id", ""),
+                                "ontology": ent.get("ontology", ""),
+                                "confidence": ent.get("confidence", 0.0),
+                                "status": ent.get("status", "resolved"),
+                                "reason": ent.get("reason", []),
+                                "explanation": ent.get("explanation", "")
+                            })
+                        else:
+                            entities_dict.append({
+                                "mention": getattr(ent, "mention", ""),
+                                "canonical_name": getattr(ent, "canonical_name", getattr(ent, "canonical", "")),
+                                "canonical": getattr(ent, "canonical", ""),
+                                "entity_type": getattr(ent, "entity_type", ""),
+                                "identifier": getattr(ent, "identifier", ""),
+                                "concept_id": getattr(ent, "concept_id", ""),
+                                "ontology": getattr(ent, "ontology", ""),
+                                "confidence": getattr(ent, "confidence", 0.0),
+                                "status": getattr(ent, "status", "resolved"),
+                                "reason": getattr(ent, "reason", []),
+                                "explanation": getattr(ent, "explanation", "")
+                            })
+                            
+                    report = generate_report(query_to_process, entities_dict)
+                    agent.history_manager.add_turn(
+                        session_id=st.session_state.session_id,
+                        user_content=query_to_process,
+                        assistant_content=report,
+                        resolved_entities=entities_dict
+                    )
+                    res_payload = {
+                        "session_id": st.session_state.session_id,
+                        "original_query": query_to_process,
+                        "enriched_query": query_to_process,
+                        "intent": "SIMPLE_RESOLUTION",
+                        "resolved_entities": entities_dict,
+                        "report": report,
+                        "route": "SIMPLE_RESOLUTION"
+                    }
+                else:
+                    res = agent.process_query(query_to_process, session_id=st.session_state.session_id)
+                    res_payload = {
+                        "session_id": res["session_id"],
+                        "original_query": res["original_query"],
+                        "enriched_query": res["enriched_query"],
+                        "intent": res["intent"],
+                        "resolved_entities": res["resolved_entities"],
+                        "report": res["report"],
+                        "route": "COMPLEX_AGENT"
+                    }
+            
             # Render Results
             if res_payload["route"] == "SIMPLE_RESOLUTION":
                 st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>⚡ <em>Deterministic Module 2 Resolution</em></p>", unsafe_allow_html=True)
@@ -373,6 +577,7 @@ if user_query := st.chat_input("Message Biomedical Agent..."):
                 st.markdown(pills_html, unsafe_allow_html=True)
                 st.session_state.all_resolved_entities.extend(entities)
                 
+            # Save response to history
             st.session_state.messages.append({
                 "role": "assistant",
                 "content": res_payload["report"],
@@ -380,12 +585,14 @@ if user_query := st.chat_input("Message Biomedical Agent..."):
             })
             
         except Exception as err:
-            st.error(f"Error processing request: {err}")
+            error_msg = f"Error processing request: {err}"
+            st.error(error_msg)
             st.session_state.messages.append({
                 "role": "assistant",
-                "content": f"Error: {err}",
+                "content": error_msg,
                 "metadata": {}
             })
+    st.rerun()
 
 # Minimalist floating disclaimer
 st.markdown("""

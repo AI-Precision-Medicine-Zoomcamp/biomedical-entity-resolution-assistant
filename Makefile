@@ -49,9 +49,9 @@ run-api:
 	uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 run-ui:
-	streamlit run src/app_client.py
+	uv run streamlit run src/app_client.py
 run-streamlit:
-	streamlit run src/app.py
+	uv run streamlit run src/app.py
 
 
 test:
