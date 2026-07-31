@@ -16,6 +16,38 @@ from src.agent.router import WorkflowRouter
 from src.entity_resolution.pipeline import BiomedicalEntityResolverPipeline
 from src.tools import generate_report
 
+def generate_conversational_response(query_text: str, resolved_entities: list) -> str:
+    if not resolved_entities:
+        return (
+            "I am a specialized Biomedical Entity Resolution Assistant. I couldn't identify any clinical terms, "
+            "genes, variants, or drugs in your query, which appears to be outside my medical domain. "
+            "Please specify a clinical term or ask a biomedical question!"
+        )
+    
+    parts = []
+    parts.append(f"I analyzed your query and identified the following biomedical concept(s):\n")
+    for ent in resolved_entities:
+        if isinstance(ent, dict):
+            mention = ent.get("mention", "")
+            canonical = ent.get("canonical_name", ent.get("canonical", ""))
+            etype = ent.get("entity_type", "Concept")
+            oid = ent.get("identifier", "")
+            explanation = ent.get("explanation", "")
+        else:
+            mention = getattr(ent, "mention", "")
+            canonical = getattr(ent, "canonical_name", getattr(ent, "canonical", ""))
+            etype = getattr(ent, "entity_type", "Concept")
+            oid = getattr(ent, "identifier", "")
+            explanation = getattr(ent, "explanation", "")
+            
+        parts.append(f"* **Mention:** `{mention}` → **{canonical}** (`{oid}`)")
+        parts.append(f"  * **Type:** {etype}")
+        if explanation:
+            parts.append(f"  * **Explanation:** {explanation}")
+            
+    parts.append("\n*If you would like a detailed, formal clinical report with PubMed references, please ask me to 'generate a report'.*")
+    return "\n".join(parts)
+
 # 1. Page Configuration and Theming
 st.set_page_config(
     page_title="Biomedical Agent",
@@ -449,7 +481,9 @@ else:
                 intent = res_meta.get("intent", "COMPLEX_AGENT")
                 
                 # Sub-info/routing details rendered minimally
-                if intent == "SIMPLE_RESOLUTION":
+                if intent == "OUT_OF_DOMAIN":
+                    st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>🌐 <em>Out of Domain Guardrail</em></p>", unsafe_allow_html=True)
+                elif intent == "SIMPLE_RESOLUTION":
                     st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>⚡ <em>Deterministic Module 2 Resolution</em></p>", unsafe_allow_html=True)
                 else:
                     st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>🧠 <em>Biomedical Agent RAG reasoning loop</em></p>", unsafe_allow_html=True)
@@ -526,7 +560,23 @@ if "pending_query" in st.session_state and st.session_state.pending_query:
                                 "explanation": getattr(ent, "explanation", "")
                             })
                             
-                    report = generate_report(query_to_process, entities_dict)
+                    normalized = query_to_process.lower().strip()
+                    needs_report = any(keyword in normalized for keyword in ["report", "table", "markdown", "generate report", "make a report", "clinical report"])
+                    
+                    if not resolved_entities_raw:
+                        report = (
+                            "I am a specialized Biomedical Entity Resolution Assistant. I couldn't identify any clinical terms, "
+                            "genes, variants, or drugs in your query, which appears to be outside my medical domain. "
+                            "Please specify a clinical term or ask a biomedical question!"
+                        )
+                        intent = "OUT_OF_DOMAIN"
+                    else:
+                        if needs_report:
+                            report = generate_report(query_to_process, entities_dict)
+                        else:
+                            report = generate_conversational_response(query_to_process, resolved_entities_raw)
+                        intent = "SIMPLE_RESOLUTION"
+                        
                     agent.history_manager.add_turn(
                         session_id=st.session_state.session_id,
                         user_content=query_to_process,
@@ -537,7 +587,7 @@ if "pending_query" in st.session_state and st.session_state.pending_query:
                         "session_id": st.session_state.session_id,
                         "original_query": query_to_process,
                         "enriched_query": query_to_process,
-                        "intent": "SIMPLE_RESOLUTION",
+                        "intent": intent,
                         "resolved_entities": entities_dict,
                         "report": report,
                         "route": "SIMPLE_RESOLUTION"
@@ -555,7 +605,9 @@ if "pending_query" in st.session_state and st.session_state.pending_query:
                     }
             
             # Render Results
-            if res_payload["route"] == "SIMPLE_RESOLUTION":
+            if res_payload.get("intent") == "OUT_OF_DOMAIN":
+                st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>🌐 <em>Out of Domain Guardrail</em></p>", unsafe_allow_html=True)
+            elif res_payload["route"] == "SIMPLE_RESOLUTION":
                 st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>⚡ <em>Deterministic Module 2 Resolution</em></p>", unsafe_allow_html=True)
             else:
                 st.markdown("<p style='font-size:11px; color:#b4b4b4; margin-bottom: 12px;'>🧠 <em>Biomedical Agent RAG reasoning loop</em></p>", unsafe_allow_html=True)
