@@ -21,6 +21,7 @@ class AgentPlanner:
         """
         Detects pronouns or referencing words like 'it', 'this concept', 'that gene'
         and replaces them with the name of the last resolved concept from the session history.
+        Also enriches standalone report commands with the last concept.
         """
         if not self.history_manager or not session_id:
             return query
@@ -33,6 +34,15 @@ class AgentPlanner:
         target_concept = last_resolved[0].get("canonical_name", "")
         if not target_concept:
             return query
+
+        # Check for standalone report command first
+        query_clean = query.strip().lower()
+        if query_clean in [
+            "generate a report", "generate report", "make a report", 
+            "make report", "create a report", "create report", 
+            "show report", "show a report", "give me a report", "give me report"
+        ]:
+            return f"generate a report for {target_concept}"
 
         # Case-insensitive replacement for common pronoun constructs
         pronoun_patterns = [
