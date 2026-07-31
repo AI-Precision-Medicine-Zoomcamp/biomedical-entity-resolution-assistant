@@ -11,9 +11,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-# Mock torchvision before other imports
-import src.utils.mock_torchvision
-
 from src.embeddings.embedder import BiomedicalEmbedder
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct

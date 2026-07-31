@@ -21,3 +21,11 @@ data/processed/
 
 # OS Files
 .DS_Store
+
+# Models
+models/
+
+# Build & egg-info directories
+*.egg-info/
+build/
+dist/

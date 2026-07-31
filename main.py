@@ -9,9 +9,6 @@ if str(PROJECT_ROOT) not in sys.path:
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-# Mock torchvision before any other imports
-import src.utils.mock_torchvision
-
 import uvicorn
 try:
     from fastapi import FastAPI

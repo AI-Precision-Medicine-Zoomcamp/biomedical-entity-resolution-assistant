@@ -17,10 +17,11 @@ dependencies = [
     "requests>=2.34.2",
     "scikit-learn>=1.9.0",
     "scispacy>=0.2.4",
-    "sentence-transformers>=5.6.1",
+    "onnxruntime>=1.20.0",
+    "tokenizers>=0.21.0",
+    "huggingface-hub>=0.28.0",
     "spacy>=3.8.14",
     "streamlit>=1.60.0",
-    "torch>=2.13.0",
     "tqdm>=4.69.0",
     "uvicorn>=0.50.2",
 ]

@@ -8,7 +8,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-import src.utils.mock_torchvision
 from src.embeddings.embedder import BiomedicalEmbedder
 from src.retrieval.embed_and_index import get_qdrant_client, COLLECTION_NAME, get_deterministic_uuid
 from qdrant_client.models import PointStruct
