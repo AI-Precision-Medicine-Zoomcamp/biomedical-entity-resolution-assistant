@@ -346,6 +346,10 @@ with st.sidebar:
         """, unsafe_allow_html=True)
     else:
         st.markdown("<p style='font-size: 12px; color: #555; padding-left: 5px;'>No data logged.</p>", unsafe_allow_html=True)
+        
+    st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 11px; font-weight: 600; color: #666; margin-left: 5px; text-transform: uppercase;'>Observability</p>", unsafe_allow_html=True)
+    st.markdown("<a href='http://localhost:8502' target='_blank' style='font-size: 12px; color: #10a37f; text-decoration: none; padding-left: 5px;'>🏥 Open Monitoring Dashboard</a>", unsafe_allow_html=True)
 
 # 5. Top Navigation Selector
 col_left, col_right = st.columns([8, 2])

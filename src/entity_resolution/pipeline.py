@@ -46,8 +46,16 @@ class BiomedicalEntityResolverPipeline:
         if not text:
             return []
 
+        from src.monitoring.instrumentation import get_active_context
+        ctx = get_active_context()
+
         # Step 1: Named Entity Recognition (NER)
-        mentions = self.ner.extract_mentions(text)
+        if ctx:
+            with ctx.span("detect_entities") as span:
+                mentions = self.ner.extract_mentions(text)
+                span.set_attribute("mentions_count", len(mentions))
+        else:
+            mentions = self.ner.extract_mentions(text)
         
         is_fallback = False
         if not mentions:
@@ -68,10 +76,22 @@ class BiomedicalEntityResolverPipeline:
             best_candidate = None
             
             # Step 2: Retrieve candidate concepts from index
-            candidates = self.retriever.hybrid_search(normalized_mention, limit=10)
+            if ctx:
+                with ctx.span("retrieve_candidates") as span:
+                    candidates = self.retriever.hybrid_search(normalized_mention, limit=10)
+                    span.set_attribute("candidates_count", len(candidates))
+            else:
+                candidates = self.retriever.hybrid_search(normalized_mention, limit=10)
+
             if candidates:
                 # Step 3: Rank candidates
-                ranked_candidates = self.ranker.rank_candidates(normalized_mention, candidates)
+                if ctx:
+                    with ctx.span("rank_candidates") as span:
+                        ranked_candidates = self.ranker.rank_candidates(normalized_mention, candidates)
+                        span.set_attribute("best_score", ranked_candidates[0]["score"] if ranked_candidates else 0.0)
+                else:
+                    ranked_candidates = self.ranker.rank_candidates(normalized_mention, candidates)
+
                 if ranked_candidates:
                     best_candidate = ranked_candidates[0]
 
@@ -83,8 +103,16 @@ class BiomedicalEntityResolverPipeline:
                 if is_fallback and confidence < 0.60:
                     continue
                     
-                explanation = self.explanation_generator.generate_explanation(mention, best_candidate, confidence)
-                reasons = self.explanation_generator.generate_reasons(mention, best_candidate, confidence)
+                if ctx:
+                    with ctx.span("generate_explanation") as span:
+                        explanation = self.explanation_generator.generate_explanation(mention, best_candidate, confidence)
+                        reasons = self.explanation_generator.generate_reasons(mention, best_candidate, confidence)
+                        span.set_attribute("confidence", confidence)
+                        span.set_attribute("canonical_name", best_candidate["canonical_name"])
+                        span.set_attribute("ontology", best_candidate["source"])
+                else:
+                    explanation = self.explanation_generator.generate_explanation(mention, best_candidate, confidence)
+                    reasons = self.explanation_generator.generate_reasons(mention, best_candidate, confidence)
                 
                 # Human review thresholds
                 if confidence > 0.90:
@@ -113,4 +141,7 @@ class BiomedicalEntityResolverPipeline:
                     "explanation": explanation
                 })
                 
+        if ctx:
+            ctx.add_resolved_entities(resolved_entities)
+            
         return resolved_entities

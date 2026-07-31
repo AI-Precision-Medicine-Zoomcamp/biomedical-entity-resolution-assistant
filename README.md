@@ -704,6 +704,43 @@ Tracks predicted confidence vs. actual classification accuracy:
 
 ---
 
+# Real-Time Monitoring & Observability
+
+To support clinical deployments, the system features a production-grade observability pipeline located in `src/monitoring/` that tracks latency, cost, and accuracy, detecting model drift and facilitating clinician-in-the-loop expert corrections.
+
+## 1. Observability Architecture
+The monitoring stack consists of three layers:
+1. **End-to-End Tracing (OpenTelemetry)**: Captures request journeys across multiple stages (NER, Retrieval, Ranking, and LLM reasoning) using standard OTEL Spans.
+2. **Persistent SQL Telemetry Store (SQLite)**: Records raw metrics, resolved concepts, triggered alerts, and clinician feedback inside `data/monitoring.db`.
+3. **Interactive Observability Dashboard (Streamlit)**: Visualizes real-time performance, system alerts, cost metrics, and provides an expert review interface to correct classifications.
+
+## 2. Telemetry Schema & Logs
+All request metrics are persisted to the SQLite telemetry database (`data/monitoring.db`) across four main tables:
+*   `requests_log`: High-level execution logs tracking timestamp, user query, total latency, LLM input/output tokens, estimated cost, status, and API routes.
+*   `resolved_entities_log`: Granular records of each extracted entity, its ontology classification, standard identifier, confidence score, and review status.
+*   `feedback_log`: Closed-loop expert corrections containing correct mappings and clinical notes.
+*   `alerts_log`: Proactive alerts warning administrators of system regressions.
+
+## 3. Real-Time Alerting Engine
+The alerting system automatically scans incoming requests and raises warnings under three conditions:
+1. **High Latency Warning**: Raised if any query takes longer than `2500ms`.
+2. **Low Confidence Warning**: Raised if the system resolves an entity with confidence `< 0.80`.
+3. **Daily Spend Threshold**: Alerts administrators if daily LLM costs exceed `$5.00`.
+
+## 4. Run the Monitoring Dashboard
+To launch the real-time observability dashboard:
+```bash
+make run-dashboard
+```
+This runs the dashboard on port `8502`. You can navigate to:
+*   **System Health**: Overview of request volumes, latency, error rates, and total spending alongside active confidence drift alerts.
+*   **AI Performance**: Breakdown of pipeline phase durations and cumulative LLM costs.
+*   **Biomedical Analytics**: Bar charts showing ontology distributions and search terms.
+*   **System Alerts**: Review and mark active alerts as resolved.
+*   **Human-in-the-Loop Panel**: Submit standard corrections for low-confidence concepts to update the validation logs.
+
+---
+
 # Development Roadmap
 
 ## Phase 1 — Core Resolver (MVP)

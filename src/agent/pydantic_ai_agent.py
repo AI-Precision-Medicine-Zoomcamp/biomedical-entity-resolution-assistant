@@ -219,7 +219,21 @@ class PydanticAIBiomedicalAgent:
         prompt = f"User query: {query}\n\nResolved Entities Context:\n{entity_context}"
         
         try:
-            result = explanation_agent.run_sync(prompt)
+            from src.monitoring.instrumentation import get_active_context
+            ctx = get_active_context()
+            if ctx:
+                with ctx.span("llm_reasoning") as span:
+                    result = explanation_agent.run_sync(prompt)
+                    usage = result.usage()
+                    in_tokens = usage.input_tokens or 0
+                    out_tokens = usage.output_tokens or 0
+                    cost = (in_tokens * 0.59 + out_tokens * 0.79) / 1_000_000
+                    ctx.track_llm_usage(in_tokens, out_tokens, cost)
+                    span.set_attribute("input_tokens", in_tokens)
+                    span.set_attribute("output_tokens", out_tokens)
+                    span.set_attribute("cost", cost)
+            else:
+                result = explanation_agent.run_sync(prompt)
             return result.data
         except Exception as e:
             # Fallback to a structured string if LLM fails
@@ -266,7 +280,24 @@ class PydanticAIBiomedicalAgent:
 
         # Run the live agent with deps context
         deps = AgentDeps(query=enriched_query, session_id=session_id)
-        result = pydantic_agent.run_sync(enriched_query, deps=deps)
+        
+        from src.monitoring.instrumentation import get_active_context
+        ctx = get_active_context()
+        
+        if ctx:
+            with ctx.span("llm_reasoning") as span:
+                result = pydantic_agent.run_sync(enriched_query, deps=deps)
+                usage = result.usage()
+                in_tokens = usage.input_tokens or 0
+                out_tokens = usage.output_tokens or 0
+                cost = (in_tokens * 0.59 + out_tokens * 0.79) / 1_000_000
+                ctx.track_llm_usage(in_tokens, out_tokens, cost)
+                span.set_attribute("input_tokens", in_tokens)
+                span.set_attribute("output_tokens", out_tokens)
+                span.set_attribute("cost", cost)
+        else:
+            result = pydantic_agent.run_sync(enriched_query, deps=deps)
+            
         data = result.output
         intent = data.intent
         resolved_entities = data.resolved_entities
