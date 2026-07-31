@@ -49,6 +49,14 @@ class BiomedicalEntityResolverPipeline:
         # Step 1: Named Entity Recognition (NER)
         mentions = self.ner.extract_mentions(text)
         
+        is_fallback = False
+        if not mentions:
+            # Fallback for short queries (potentially misspelled single entities)
+            words = text.strip().split()
+            if len(words) <= 5 and len(text) <= 40:
+                mentions = [{"mention": text.strip(), "start_char": 0, "end_char": len(text.strip())}]
+                is_fallback = True
+        
         resolved_entities = []
         
         for item in mentions:
@@ -70,6 +78,11 @@ class BiomedicalEntityResolverPipeline:
             # Step 4: Compute confidence and explanation
             if best_candidate:
                 confidence = self.confidence_estimator.estimate_confidence(mention, best_candidate)
+                
+                # If we fell back and confidence is low (< 0.60), skip this concept to prevent false positives (like chitchat)
+                if is_fallback and confidence < 0.60:
+                    continue
+                    
                 explanation = self.explanation_generator.generate_explanation(mention, best_candidate, confidence)
                 reasons = self.explanation_generator.generate_reasons(mention, best_candidate, confidence)
                 
