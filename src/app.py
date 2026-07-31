@@ -598,5 +598,7 @@ if "pending_query" in st.session_state and st.session_state.pending_query:
 st.markdown("""
 <div style='text-align: center; font-size: 11px; color: #555; margin-top: 40px; width: 100%;'>
     Biomedical Agent can make mistakes. Verify clinical details in peer-reviewed sources.
+    <br>
+    Built with ❤️ by <a href='https://www.linkedin.com/in/unekwuojo-james-b2511225b/' target='_blank' style='color: #888; text-decoration: underline;'>Jamesunekwuojo</a>
 </div>
 """, unsafe_allow_html=True)
