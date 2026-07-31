@@ -487,62 +487,81 @@ biomedical-entity-resolution-assistant/
 └── Makefile                    # Local automation tasks
 ```
 
----
+# Installation & Setup
 
-# Installation
+All project tasks are centralized and automated using the `Makefile`.
 
-## Clone Repository
-
+## 1. Clone the Repository
 ```bash
 git clone <repo-url>
 cd biomedical-entity-resolution-assistant
 ```
 
----
-
-## Create Virtual Environment
-
+## 2. Setup the Environment & Dependencies
+Initialize your virtual environment and run the automated setup command to install python packages (in editable development mode) and download needed clinical NLP models (like SciSpacy and local models):
 ```bash
-python -m venv venv
-source venv/bin/activate
-```
+# Set up virtual environment
+python -m venv .venv
+source .venv/bin/activate
 
-Windows:
-
-```bash
-venv\Scripts\activate
-```
-
----
-
-## Install Dependencies
-
-```bash
-pip install -e .
+# Install all dependencies and download required models
+make setup
 ```
 
 ---
 
 # Running the Project
 
-## Run API
+Follow these steps to run the ingestion pipelines, index the vector database, and start the application.
 
+## 1. Populate the Knowledge Bases (Data Pipeline)
+Ingest standard ontologies (HGNC, MeSH, RxNorm) and index/embed them into the vector database (Qdrant):
 ```bash
-uvicorn main:app --reload
+# Ingest clinical source dictionaries
+make ingest
+
+# Generate vector embeddings and index into Qdrant
+make index
 ```
 
-API available at:
+## 2. Start the Backend API
+Run the FastAPI server which exposes standard `/resolve` and `/chat` endpoints:
+```bash
+make run-api
+```
+*API is hosted at: `http://localhost:8000` (API documentation/Swagger available at `/docs`)*
 
-```text
-http://localhost:8000
+## 3. Start the Frontend User Interface
+We provide two Streamlit layouts:
+```bash
+# Run the Client UI (standard chat & resolution app)
+make run-ui
+
+# Run the full-featured Precision Medicine Agent Dashboard
+make run-streamlit
 ```
 
 ---
 
-## Run UI
+# Testing & Verification
 
+Ensure code quality and test configurations:
 ```bash
-streamlit run src/utils/streamlit_app.py
+# Run Pytest unit and integration test suite
+make test
+```
+
+---
+
+# Evaluation & Benchmarking
+
+Run the validation suite to generate the reports and performance visualization curves shown below:
+```bash
+# Run the automated benchmarking suite
+make benchmark
+
+# Launch the Jupyter Notebook server to interactively explore evaluation metrics
+make notebook
 ```
 
 ---
