@@ -634,10 +634,10 @@ How well the assistant performs on different databases:
 
 | Ontology | Accuracy | Precision | Recall | F1-Score | Status |
 | --- | --- | --- | --- | --- | --- |
-| **HGNC** (Genes) | 100.0% (`1.0000`) | 1.00 | 1.00 | 1.00 | Perfect ✅ |
-| **MeSH** (Diseases/Symptoms) | 100.0% (`1.0000`) | 1.00 | 1.00 | 1.00 | Perfect ✅ |
-| **RxNorm** (Drugs/Treatments) | 90.0% (`0.9000`) | 0.90 | 0.90 | 0.90 | High ✅ (1 minor typo misclass) |
-| **ClinVar** (Genomic Variants) | 100.0% (`1.0000`) | 1.00 | 1.00 | 1.00 | Perfect ✅ |
+| **HGNC** (Genes) | 100.0% (`1.0000`) | 1.00 | 1.00 | 1.00 | Perfect  |
+| **MeSH** (Diseases/Symptoms) | 100.0% (`1.0000`) | 1.00 | 1.00 | 1.00 | Perfect  |
+| **RxNorm** (Drugs/Treatments) | 90.0% (`0.9000`) | 0.90 | 0.90 | 0.90 | High  (1 minor typo misclass) |
+| **ClinVar** (Genomic Variants) | 100.0% (`1.0000`) | 1.00 | 1.00 | 1.00 | Perfect |
 
 ### C. Search Strategy Retrieval Comparison
 Comparing how well different database search algorithms find the correct concept in the top $K$ results:
