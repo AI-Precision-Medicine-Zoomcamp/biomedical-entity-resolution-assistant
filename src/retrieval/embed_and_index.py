@@ -32,7 +32,7 @@ except Exception:
 EMBEDDING_MODEL_NAME = config.get("embedding", {}).get("model", "sapbert")
 # Map 'sapbert' alias to actual Hugging Face model path
 if EMBEDDING_MODEL_NAME == "sapbert":
-    MODEL_HF_ID = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext"
+    MODEL_HF_ID = "Xenova/SapBERT-from-PubMedBERT-fulltext"
 else:
     MODEL_HF_ID = EMBEDDING_MODEL_NAME
 

@@ -51,10 +51,11 @@ download-models:
 setup: install download-models
 
 ingest:
-	python src/ingestion/run_ingestion.py
+	uv run python src/ingestion/run_ingestion.py
 
 index:
-	python src/retrieval/embed_and_index.py
+	uv run python src/retrieval/embed_and_index.py
+
 
 run-api:
 	uvicorn main:app --host 0.0.0.0 --port 8000 --reload
