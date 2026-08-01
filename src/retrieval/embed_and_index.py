@@ -11,6 +11,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+from dotenv import load_dotenv
+load_dotenv(PROJECT_ROOT / ".env")
+
 from src.embeddings.embedder import BiomedicalEmbedder
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
@@ -45,14 +48,27 @@ def get_deterministic_uuid(entity_id: str) -> str:
 
 def get_qdrant_client() -> QdrantClient:
     """
-    Attempts to connect to a local running Qdrant server.
-    If it's not running, falls back to a persistent local SQLite/file-backed database.
+    Attempts to connect to a Qdrant server (cloud via QDRANT_URL or local via QDRANT_HOST/QDRANT_PORT).
+    If it's not running/available, falls back to a persistent local SQLite/file-backed database.
     If the local database is locked by another instance, falls back to in-memory mode.
     Caches the client instance to avoid multiple concurrent locks on local disk.
     """
     global _qdrant_client_instance
     if _qdrant_client_instance is not None:
         return _qdrant_client_instance
+
+    url = os.getenv("QDRANT_URL")
+    api_key = os.getenv("QDRANT_API_KEY")
+
+    if url:
+        try:
+            print(f"[Qdrant] Connecting to instance at {url}...")
+            _qdrant_client_instance = QdrantClient(url=url, api_key=api_key, timeout=60.0)
+            # Verify connectivity
+            _qdrant_client_instance.get_collections()
+            return _qdrant_client_instance
+        except Exception as e:
+            print(f"[Qdrant] Cloud/URL connection failed ({e}). Falling back to local modes.")
 
     host = os.getenv("QDRANT_HOST", "localhost")
     port = int(os.getenv("QDRANT_PORT", 6333))
