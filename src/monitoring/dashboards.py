@@ -45,7 +45,7 @@ def get_conn():
     return sqlite3.connect(str(DB_PATH))
 
 # Title
-st.title("🏥 Biomedical Entity Resolution Observability Dashboard")
+st.markdown("<h2 style='font-size: 26px; font-weight: 700; color: #f8fafc; margin-top: -30px; margin-bottom: 4px;'>🏥 Biomedical Entity Resolution Observability Dashboard</h2>", unsafe_allow_html=True)
 st.markdown("Real-time telemetry, model drift detection, cost monitoring, and clinician feedback loops.")
 
 # Sidebar
@@ -66,7 +66,7 @@ conn = get_conn()
 
 # Page 1: System Health Overview
 if page == "🏥 System Health Overview":
-    st.header("System Health & Operational Metrics")
+    st.markdown("<h3 style='font-size: 20px; font-weight: 600; color: #f1f5f9; margin-top: 5px; margin-bottom: 15px;'>System Health & Operational Metrics</h3>", unsafe_allow_html=True)
     
     # Get metrics
     metrics = get_system_health_metrics()
@@ -131,7 +131,7 @@ if page == "🏥 System Health Overview":
 
 # Page 2: AI & LLM Performance
 elif page == "🧠 AI & LLM Performance":
-    st.header("LLM Costs & Token Usage Metrics")
+    st.markdown("<h3 style='font-size: 20px; font-weight: 600; color: #f1f5f9; margin-top: 5px; margin-bottom: 15px;'>LLM Costs & Token Usage Metrics</h3>", unsafe_allow_html=True)
     
     metrics = get_system_health_metrics()
     if not metrics or metrics.get("total_requests", 0) == 0:
@@ -170,7 +170,7 @@ elif page == "🧠 AI & LLM Performance":
 
 # Page 3: 🧬 Biomedical Analytics
 elif page == "🧬 Biomedical Analytics":
-    st.header("Biomedical Search Analytics")
+    st.markdown("<h3 style='font-size: 20px; font-weight: 600; color: #f1f5f9; margin-top: 5px; margin-bottom: 15px;'>Biomedical Search Analytics</h3>", unsafe_allow_html=True)
     
     analytics = get_biomedical_analytics()
     if not analytics or not analytics.get("ontology_usage"):
@@ -199,7 +199,7 @@ elif page == "🧬 Biomedical Analytics":
 
 # Page 4: System Alerts
 elif page == "🚨 System Alerts":
-    st.header("Active System Alerts")
+    st.markdown("<h3 style='font-size: 20px; font-weight: 600; color: #f1f5f9; margin-top: 5px; margin-bottom: 15px;'>Active System Alerts</h3>", unsafe_allow_html=True)
     
     df_alerts = pd.read_sql_query("""
         SELECT id, timestamp, alert_type, severity, message, resolved 
@@ -230,7 +230,7 @@ elif page == "🚨 System Alerts":
 
 # Page 5: Human-in-the-Loop Review
 elif page == "🔍 Human-in-the-Loop Review":
-    st.header("Clinician & Expert Verification Panel")
+    st.markdown("<h3 style='font-size: 20px; font-weight: 600; color: #f1f5f9; margin-top: 5px; margin-bottom: 15px;'>Clinician & Expert Verification Panel</h3>", unsafe_allow_html=True)
     st.markdown("""
         Review resolutions that fell below the auto-accept confidence threshold ($< 0.90$) or triggered low-confidence warnings.
         Providing corrections closes the loop, saving validation data to retrain rankings and evaluate prompt adjustments.

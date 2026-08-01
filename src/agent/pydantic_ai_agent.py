@@ -224,7 +224,7 @@ class PydanticAIBiomedicalAgent:
             if ctx:
                 with ctx.span("llm_reasoning") as span:
                     result = explanation_agent.run_sync(prompt)
-                    usage = result.usage()
+                    usage = result.usage
                     in_tokens = usage.input_tokens or 0
                     out_tokens = usage.output_tokens or 0
                     cost = (in_tokens * 0.59 + out_tokens * 0.79) / 1_000_000
@@ -287,7 +287,7 @@ class PydanticAIBiomedicalAgent:
         if ctx:
             with ctx.span("llm_reasoning") as span:
                 result = pydantic_agent.run_sync(enriched_query, deps=deps)
-                usage = result.usage()
+                usage = result.usage
                 in_tokens = usage.input_tokens or 0
                 out_tokens = usage.output_tokens or 0
                 cost = (in_tokens * 0.59 + out_tokens * 0.79) / 1_000_000
@@ -329,6 +329,10 @@ class PydanticAIBiomedicalAgent:
                 if canonical_query:
                     lit = search_literature(canonical_query, limit=3)
                 report = generate_report(enriched_query, resolved_entities, lit)
+
+        # Ensure resolved entities are logged to active telemetry if present
+        if ctx and resolved_entities:
+            ctx.add_resolved_entities(resolved_entities)
 
         # 5. Store in history
         self.history_manager.add_turn(

@@ -1,7 +1,7 @@
 # Biomedical Entity Resolution Assistant Makefile
 # Centralizes all commands for setup, ingestion, execution, testing, and Docker.
 
-.PHONY: help install download-models setup ingest index run-api run-ui run-dashboard test docker-up docker-down clean benchmark notebook
+.PHONY: help install download-models setup ingest index run-api run-ui run-streamlit run-dashboard test docker-up docker-down clean benchmark notebook logfire-auth logfire-setup logfire-projects
 
 # Default command: display help menu
 help:
@@ -17,11 +17,16 @@ help:
 	@echo "  make ingest          - Run the data ingestion pipeline (HGNC, MeSH, RxNorm)"
 	@echo "  make index           - Embed and index data into Qdrant/vector database"
 	@echo ""
-	@echo "Execution:"
+	@echo "Execution & Custom Monitoring:"
 	@echo "  make run-api         - Run the FastAPI backend server (port 8000)"
 	@echo "  make run-ui          - Run the Streamlit UI frontend (port 8501)"
 	@echo "  make run-streamlit   - Run the Streamlit full application"
 	@echo "  make run-dashboard   - Run the Streamlit monitoring dashboard (port 8502)"
+	@echo ""
+	@echo "Observability & Tracing (Logfire):"
+	@echo "  make logfire-auth    - Authenticate with Logfire"
+	@echo "  make logfire-setup   - Create and link Logfire project"
+	@echo "  make logfire-projects - List your Logfire projects"
 	@echo ""
 	@echo "Evaluation & Benchmarking:"
 	@echo "  make benchmark       - Run the automated benchmarking suite"
@@ -60,6 +65,18 @@ run-streamlit:
 	uv run streamlit run src/app.py
 run-dashboard:
 	uv run streamlit run src/monitoring/dashboards.py --server.port 8502
+
+logfire-auth:
+	uv run logfire auth
+
+logfire-setup:
+	@echo "Creating new Logfire project 'biomedical-entity-resolution-assistant'..."
+	-uv run logfire projects new biomedical-entity-resolution-assistant
+	@echo "Setting project as active for this directory..."
+	uv run logfire projects use biomedical-entity-resolution-assistant
+
+logfire-projects:
+	uv run logfire projects list
 
 benchmark:
 	uv run python benchmark.py

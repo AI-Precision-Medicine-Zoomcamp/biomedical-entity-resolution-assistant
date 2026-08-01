@@ -727,8 +727,8 @@ The alerting system automatically scans incoming requests and raises warnings un
 2. **Low Confidence Warning**: Raised if the system resolves an entity with confidence `< 0.80`.
 3. **Daily Spend Threshold**: Alerts administrators if daily LLM costs exceed `$5.00`.
 
-## 4. Run the Monitoring Dashboard
-To launch the real-time observability dashboard:
+## 4. Run the Custom Curation Dashboard
+To launch the real-time Streamlit observability dashboard:
 ```bash
 make run-dashboard
 ```
@@ -738,6 +738,29 @@ This runs the dashboard on port `8502`. You can navigate to:
 *   **Biomedical Analytics**: Bar charts showing ontology distributions and search terms.
 *   **System Alerts**: Review and mark active alerts as resolved.
 *   **Human-in-the-Loop Panel**: Submit standard corrections for low-confidence concepts to update the validation logs.
+
+## 5. Technical Observability & Developer Tracing (Logfire)
+For developers and AI engineers seeking to inspect exact span trees, database queries, and raw model prompts/responses, the project is instrumented with **Pydantic Logfire**:
+
+1. **Authenticate with Logfire**:
+   ```bash
+   make logfire-auth
+   ```
+   *Follow the terminal prompts to log in or create a free account.*
+
+2. **Setup the Project**:
+   ```bash
+   make logfire-setup
+   ```
+   *Creates a new Logfire project for the assistant and links it to your repository.*
+
+3. **Check/List Linked Projects**:
+   ```bash
+   make logfire-projects
+   ```
+
+4. **Launch Logfire Web UI**:
+   Navigate to **[https://logfire-us.pydantic.dev/](https://logfire-us.pydantic.dev/)** in your browser. All backend API and LLM runs will be streamed live as beautiful, collapsible trace trees.
 
 ---
 
