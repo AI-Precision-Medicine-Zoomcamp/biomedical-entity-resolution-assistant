@@ -24,6 +24,40 @@ This project solves that problem by building an **Entity Resolution Assistant** 
 
 ---
 
+# System Architecture
+
+The following diagram illustrates the high-level architecture of the Biomedical Entity Resolution Assistant, including its dual-route query execution flow, ingestion subsystem, and telemetry pipelines:
+
+```mermaid
+graph TD
+    User([Physician / Client]) -->|Query| UI[Streamlit Chat Interface / FastAPI App]
+    UI -->|Route Query| Router{Query Router}
+    
+    %% Route 1: Simple Resolution
+    Router -->|Simple Query| SimplePipe[Simple Resolution Pipeline]
+    SimplePipe -->|1. Extract NER| SciSpacy[SciSpacy / Dict Matcher]
+    SimplePipe -->|2. Search Candidates| Retriever[Hybrid Retriever: BM25 + Qdrant Vector]
+    SimplePipe -->|3. Rank Entities| Ranker[Cross-Encoder Ranker]
+    SimplePipe -->|4. Explanations| Explainer[LLM Explanation Generator]
+    
+    %% Route 2: Complex Agent
+    Router -->|Complex Reasoning| PydanticAgent[Pydantic AI Biomedical Agent]
+    PydanticAgent -->|Tools| Tools[Agent Tools: search_literature, compare_entities, retrieve_concept]
+    Tools --> Retriever
+    
+    %% Telemetry & Monitoring
+    SimplePipe -.->|Log telemetry| Instrumentation[Telemetry Pipeline]
+    PydanticAgent -.->|Log telemetry| Instrumentation
+    
+    Instrumentation -->|Spans & LLM Traces| Logfire[Pydantic Logfire Cloud UI]
+    Instrumentation -->|Metrics, Alerts, HIL| SQLite[(SQLite: monitoring.db)]
+    
+    SQLite -->|Real-Time Analytics| Dashboard[Streamlit Observability Dashboard]
+    Dashboard -->|Clinician Corrections| SQLite
+```
+
+---
+
 # Problem Statement
 
 Biomedical AI systems struggle with:
@@ -727,40 +761,106 @@ The alerting system automatically scans incoming requests and raises warnings un
 2. **Low Confidence Warning**: Raised if the system resolves an entity with confidence `< 0.80`.
 3. **Daily Spend Threshold**: Alerts administrators if daily LLM costs exceed `$5.00`.
 
-## 4. Run the Custom Curation Dashboard
-To launch the real-time Streamlit observability dashboard:
+## 4. Custom Clinical Curation Dashboard (Non-Technical Admins)
+To launch the real-time Streamlit curation and monitoring dashboard:
 ```bash
 make run-dashboard
 ```
-This runs the dashboard on port `8502`. You can navigate to:
-*   **System Health**: Overview of request volumes, latency, error rates, and total spending alongside active confidence drift alerts.
-*   **AI Performance**: Breakdown of pipeline phase durations and cumulative LLM costs.
-*   **Biomedical Analytics**: Bar charts showing ontology distributions and search terms.
-*   **System Alerts**: Review and mark active alerts as resolved.
-*   **Human-in-the-Loop Panel**: Submit standard corrections for low-confidence concepts to update the validation logs.
+This runs the dashboard on port `8502`. It is tailored for clinical administrators, medical curators, and non-technical stakeholders to inspect system outcomes, resolve system alerts, and provide Human-in-the-Loop corrections:
 
-## 5. Technical Observability & Developer Tracing (Logfire)
-For developers and AI engineers seeking to inspect exact span trees, database queries, and raw model prompts/responses, the project is instrumented with **Pydantic Logfire**:
+*   **System Health**: Visualizes request volume, average latency, and active confidence-drift warnings.
+    ![System Health Overview](reports/dashboard-reports/sys-health.png)
+*   **AI Performance**: Tracks token costs, usage over time, and time spent in each processing pipeline step.
+    ![AI Performance](reports/dashboard-reports/llm-performance.png)
+*   **Biomedical Analytics**: Details standard identifier distribution, top search queries, and ontology frequencies.
+    ![Biomedical Analytics](reports/dashboard-reports/bio-analysis.png)
+*   **System Alerts**: Lists triggers for latency regressions, budget overruns, and low confidence resolutions.
+    ![System Alerts](reports/dashboard-reports/sys-alert2.png)
+*   **Human-in-the-Loop Review**: Lets clinical curators verify, edit, and approve low-confidence resolutions.
+    ![Human-in-the-Loop Review](reports/dashboard-reports/hil.png)
+
+## 5. Technical Observability & Developer Tracing (Pydantic Logfire)
+For developers, data engineers, and AI model validators seeking low-level insights (collapsible OpenTelemetry spans, model prompt structures, database parameters, and strict execution graphs), the project integrates **Pydantic Logfire**:
 
 1. **Authenticate with Logfire**:
    ```bash
    make logfire-auth
    ```
-   *Follow the terminal prompts to log in or create a free account.*
-
-2. **Setup the Project**:
+2. **Setup/Link Repository**:
    ```bash
    make logfire-setup
    ```
-   *Creates a new Logfire project for the assistant and links it to your repository.*
-
-3. **Check/List Linked Projects**:
+3. **List Linked Projects**:
    ```bash
    make logfire-projects
    ```
+4. **Launch Developer Console**:
+   Navigate to **[https://logfire.pydantic.dev/](https://logfire.pydantic.dev/)** to monitor step-by-step tracing live.
+   ![Developer Traces on Pydantic Logfire](reports/dashboard-reports/logfire001.png)
 
-4. **Launch Logfire Web UI**:
-   Navigate to **[https://logfire-us.pydantic.dev/](https://logfire-us.pydantic.dev/)** in your browser. All backend API and LLM runs will be streamed live as beautiful, collapsible trace trees.
+---
+
+# Dual-Architecture Motivation & Role in AI Precision Medicine Platform
+
+### Motivation Behind the Dual Architecture
+This system implements a **dual-architecture pattern** consisting of a simple resolution pipeline route and a complex LLM agent route:
+1. **Simple Resolution Pipeline Route**: Used for direct, high-throughput queries (e.g., standardizing list elements in a clinical database). It bypasses heavy agent planning steps, using SciSpacy and hybrid vector search to retrieve and rank entities in `<250ms` with deterministic efficiency.
+2. **Complex LLM Agent Route**: Utilizes Pydantic AI for semantic reasoning, pronoun resolution (e.g., "compare it with Tylenol"), entity comparison, and structured clinical report generation.
+
+By separating these paths, the system optimizes response latency and limits token costs while preserving advanced reasoning capabilities for complex patient cases.
+
+### Integrating with the AI Precision Medicine Platform
+Collaboratively developed by a team of four, this **Biomedical Entity Resolution Assistant** serves as the **core semantic translation API** for the wider **AI Precision Medicine Platform**. The platform consists of four downstream agentic microservices:
+*   **Variant Evidence Assistant**: Standardizes mutation mentions (e.g., "Ex19del") to fetch verified clinical trial findings.
+*   **Therapeutic Strategy Assistant**: Maps drug aliases (e.g., "Tylenol" to "Acetaminophen") to cross-reference drug interactions.
+*   **Clinical Trial Matching Assistant**: Matches standardized disease names (e.g., "NSCLC" to "Non-Small Cell Lung Cancer") with open study inclusion criteria.
+*   **Biomarker Assistant**: Resolves gene names (e.g., "HER1" to "EGFR") to suggest therapeutic targets.
+
+By providing unified, canonical standard outputs (identifiers, standard ontology labels) via a shared FastAPI endpoint, this assistant prevents data mismatch bugs across all downstream systems.
+
+---
+
+# Deployment on Streamlit Cloud
+
+To host both the **Clinical Chat App** (`src/app.py`) and the **Observability Dashboard** (`src/monitoring/dashboards.py`) in production using Streamlit Cloud, follow these steps:
+
+### 1. Repository Setup & Dependencies
+* Ensure all files are pushed to a public GitHub repository (Streamlit Cloud integrates directly with GitHub).
+* The dependencies are configured using `pyproject.toml` and lock files. Streamlit Cloud will automatically detect these and install packages like `pydantic-ai`, `qdrant-client`, `logfire`, etc.
+
+### 2. Live Database Hosting
+Since SQLite (`data/monitoring.db`) is ephemeral on Streamlit Cloud containers, you must transition to a cloud-hosted relational database for production telemetry:
+* Provision a free PostgreSQL database (e.g., on Neon, Supabase, or AWS RDS).
+* Update `src/monitoring/metrics.py` to connect via the PostgreSQL URI when the environment variable `DATABASE_URL` is present.
+* Run migration tables on the live database.
+
+### 3. Deploying the Chat Agent (`src/app.py`)
+1. Sign in to [Streamlit Share](https://share.streamlit.io/).
+2. Click **New app**.
+3. Select your repository, the `main` branch, and set the Main file path to:
+   ```text
+   src/app.py
+   ```
+4. Click **Advanced settings...** and add your environment variables in the **Secrets** section:
+   ```toml
+   GROQ_API_KEY = "your-groq-api-key"
+   OPENAI_API_KEY = "your-openai-key"
+   QDRANT_API_KEY = "your-qdrant-key"
+   QDRANT_URL = "your-qdrant-cluster-url"
+   LOGFIRE_TOKEN = "your-logfire-write-token"
+   DATABASE_URL = "postgresql://user:pass@host:port/dbname"
+   ```
+5. Click **Deploy**.
+
+### 4. Deploying the Observability Dashboard (`src/monitoring/dashboards.py`)
+1. Create a second Streamlit app on your account.
+2. Select the same repository and branch.
+3. Set the Main file path to:
+   ```text
+   src/monitoring/dashboards.py
+   ```
+4. Go to **Advanced settings...** -> **Secrets** and paste the **same** credentials (specifically `DATABASE_URL` so it reads telemetry logs in real time).
+5. Click **Deploy**.
 
 ---
 
