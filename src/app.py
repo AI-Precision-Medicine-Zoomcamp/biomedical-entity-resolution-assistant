@@ -346,6 +346,10 @@ with st.sidebar:
         """, unsafe_allow_html=True)
     else:
         st.markdown("<p style='font-size: 12px; color: #555; padding-left: 5px;'>No data logged.</p>", unsafe_allow_html=True)
+        
+    st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 11px; font-weight: 600; color: #666; margin-left: 5px; text-transform: uppercase;'>Observability</p>", unsafe_allow_html=True)
+    st.markdown("<a href='http://localhost:8502' target='_blank' style='font-size: 12px; color: #10a37f; text-decoration: none; padding-left: 5px;'>🏥 Open Monitoring Dashboard</a>", unsafe_allow_html=True)
 
 # 5. Top Navigation Selector
 col_left, col_right = st.columns([8, 2])
@@ -527,82 +531,87 @@ if "pending_query" in st.session_state and st.session_state.pending_query:
             with st.spinner(" "):
                 route = router.route(query_to_process)
                 
+                from src.monitoring.instrumentation import record_telemetry
+                
                 if route == "SIMPLE_RESOLUTION":
-                    resolved_entities_raw = resolver.resolve_text(query_to_process)
-                    entities_dict = []
-                    for ent in resolved_entities_raw:
-                        if isinstance(ent, dict):
-                            entities_dict.append({
-                                "mention": ent.get("mention", ""),
-                                "canonical_name": ent.get("canonical_name", ent.get("canonical", "")),
-                                "canonical": ent.get("canonical", ""),
-                                "entity_type": ent.get("entity_type", ""),
-                                "identifier": ent.get("identifier", ""),
-                                "concept_id": ent.get("concept_id", ""),
-                                "ontology": ent.get("ontology", ""),
-                                "confidence": ent.get("confidence", 0.0),
-                                "status": ent.get("status", "resolved"),
-                                "reason": ent.get("reason", []),
-                                "explanation": ent.get("explanation", "")
-                            })
-                        else:
-                            entities_dict.append({
-                                "mention": getattr(ent, "mention", ""),
-                                "canonical_name": getattr(ent, "canonical_name", getattr(ent, "canonical", "")),
-                                "canonical": getattr(ent, "canonical", ""),
-                                "entity_type": getattr(ent, "entity_type", ""),
-                                "identifier": getattr(ent, "identifier", ""),
-                                "concept_id": getattr(ent, "concept_id", ""),
-                                "ontology": getattr(ent, "ontology", ""),
-                                "confidence": getattr(ent, "confidence", 0.0),
-                                "status": getattr(ent, "status", "resolved"),
-                                "reason": getattr(ent, "reason", []),
-                                "explanation": getattr(ent, "explanation", "")
-                            })
-                            
-                    normalized = query_to_process.lower().strip()
-                    needs_report = any(keyword in normalized for keyword in ["report", "table", "markdown", "generate report", "make a report", "clinical report"])
-                    
-                    if not resolved_entities_raw:
-                        report = (
-                            "I am a specialized Biomedical Entity Resolution Assistant. I couldn't identify any clinical terms, "
-                            "genes, variants, or drugs in your query, which appears to be outside my medical domain. "
-                            "Please specify a clinical term or ask a biomedical question!"
-                        )
-                        intent = "OUT_OF_DOMAIN"
-                    else:
-                        if needs_report:
-                            report = generate_report(query_to_process, entities_dict)
-                        else:
-                            report = generate_conversational_response(query_to_process, resolved_entities_raw)
-                        intent = "SIMPLE_RESOLUTION"
+                    with record_telemetry(query_to_process, "SIMPLE_RESOLUTION") as ctx:
+                        resolved_entities_raw = resolver.resolve_text(query_to_process)
+                        entities_dict = []
+                        for ent in resolved_entities_raw:
+                            if isinstance(ent, dict):
+                                entities_dict.append({
+                                    "mention": ent.get("mention", ""),
+                                    "canonical_name": ent.get("canonical_name", ent.get("canonical", "")),
+                                    "canonical": ent.get("canonical", ""),
+                                    "entity_type": ent.get("entity_type", ""),
+                                    "identifier": ent.get("identifier", ""),
+                                    "concept_id": ent.get("concept_id", ""),
+                                    "ontology": ent.get("ontology", ""),
+                                    "confidence": ent.get("confidence", 0.0),
+                                    "status": ent.get("status", "resolved"),
+                                    "reason": ent.get("reason", []),
+                                    "explanation": ent.get("explanation", "")
+                                })
+                            else:
+                                entities_dict.append({
+                                    "mention": getattr(ent, "mention", ""),
+                                    "canonical_name": getattr(ent, "canonical_name", getattr(ent, "canonical", "")),
+                                    "canonical": getattr(ent, "canonical", ""),
+                                    "entity_type": getattr(ent, "entity_type", ""),
+                                    "identifier": getattr(ent, "identifier", ""),
+                                    "concept_id": getattr(ent, "concept_id", ""),
+                                    "ontology": getattr(ent, "ontology", ""),
+                                    "confidence": getattr(ent, "confidence", 0.0),
+                                    "status": getattr(ent, "status", "resolved"),
+                                    "reason": getattr(ent, "reason", []),
+                                    "explanation": getattr(ent, "explanation", "")
+                                })
+                                
+                        normalized = query_to_process.lower().strip()
+                        needs_report = any(keyword in normalized for keyword in ["report", "table", "markdown", "generate report", "make a report", "clinical report"])
                         
-                    agent.history_manager.add_turn(
-                        session_id=st.session_state.session_id,
-                        user_content=query_to_process,
-                        assistant_content=report,
-                        resolved_entities=entities_dict
-                    )
-                    res_payload = {
-                        "session_id": st.session_state.session_id,
-                        "original_query": query_to_process,
-                        "enriched_query": query_to_process,
-                        "intent": intent,
-                        "resolved_entities": entities_dict,
-                        "report": report,
-                        "route": "SIMPLE_RESOLUTION"
-                    }
+                        if not resolved_entities_raw:
+                            report = (
+                                "I am a specialized Biomedical Entity Resolution Assistant. I couldn't identify any clinical terms, "
+                                "genes, variants, or drugs in your query, which appears to be outside my medical domain. "
+                                "Please specify a clinical term or ask a biomedical question!"
+                            )
+                            intent = "OUT_OF_DOMAIN"
+                            ctx.intent = "OUT_OF_DOMAIN"
+                        else:
+                            if needs_report:
+                                report = generate_report(query_to_process, entities_dict)
+                            else:
+                                report = generate_conversational_response(query_to_process, resolved_entities_raw)
+                            intent = "SIMPLE_RESOLUTION"
+                            
+                        agent.history_manager.add_turn(
+                            session_id=st.session_state.session_id,
+                            user_content=query_to_process,
+                            assistant_content=report,
+                            resolved_entities=entities_dict
+                        )
+                        res_payload = {
+                            "session_id": st.session_state.session_id,
+                            "original_query": query_to_process,
+                            "enriched_query": query_to_process,
+                            "intent": intent,
+                            "resolved_entities": entities_dict,
+                            "report": report,
+                            "route": "SIMPLE_RESOLUTION"
+                        }
                 else:
-                    res = agent.process_query(query_to_process, session_id=st.session_state.session_id)
-                    res_payload = {
-                        "session_id": res["session_id"],
-                        "original_query": res["original_query"],
-                        "enriched_query": res["enriched_query"],
-                        "intent": res["intent"],
-                        "resolved_entities": res["resolved_entities"],
-                        "report": res["report"],
-                        "route": "COMPLEX_AGENT"
-                    }
+                    with record_telemetry(query_to_process, "COMPLEX_AGENT") as ctx:
+                        res = agent.process_query(query_to_process, session_id=st.session_state.session_id)
+                        res_payload = {
+                            "session_id": res["session_id"],
+                            "original_query": res["original_query"],
+                            "enriched_query": res["enriched_query"],
+                            "intent": res["intent"],
+                            "resolved_entities": res["resolved_entities"],
+                            "report": res["report"],
+                            "route": "COMPLEX_AGENT"
+                        }
             
             # Render Results
             if res_payload.get("intent") == "OUT_OF_DOMAIN":

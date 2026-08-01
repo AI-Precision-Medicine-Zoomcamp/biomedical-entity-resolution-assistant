@@ -24,6 +24,40 @@ This project solves that problem by building an **Entity Resolution Assistant** 
 
 ---
 
+# System Architecture
+
+The following diagram illustrates the high-level architecture of the Biomedical Entity Resolution Assistant, including its dual-route query execution flow, ingestion subsystem, and telemetry pipelines:
+
+```mermaid
+graph TD
+    User([Physician / Client]) -->|Query| UI[Streamlit Chat Interface / FastAPI App]
+    UI -->|Route Query| Router{Query Router}
+    
+    %% Route 1: Simple Resolution
+    Router -->|Simple Query| SimplePipe[Simple Resolution Pipeline]
+    SimplePipe -->|1. Extract NER| SciSpacy[SciSpacy / Dict Matcher]
+    SimplePipe -->|2. Search Candidates| Retriever[Hybrid Retriever: BM25 + Qdrant Vector]
+    SimplePipe -->|3. Rank Entities| Ranker[Cross-Encoder Ranker]
+    SimplePipe -->|4. Explanations| Explainer[LLM Explanation Generator]
+    
+    %% Route 2: Complex Agent
+    Router -->|Complex Reasoning| PydanticAgent[Pydantic AI Biomedical Agent]
+    PydanticAgent -->|Tools| Tools[Agent Tools: search_literature, compare_entities, retrieve_concept]
+    Tools --> Retriever
+    
+    %% Telemetry & Monitoring
+    SimplePipe -.->|Log telemetry| Instrumentation[Telemetry Pipeline]
+    PydanticAgent -.->|Log telemetry| Instrumentation
+    
+    Instrumentation -->|Spans & LLM Traces| Logfire[Pydantic Logfire Cloud UI]
+    Instrumentation -->|Metrics, Alerts, HIL| SQLite[(SQLite: monitoring.db)]
+    
+    SQLite -->|Real-Time Analytics| Dashboard[Streamlit Observability Dashboard]
+    Dashboard -->|Clinician Corrections| SQLite
+```
+
+---
+
 # Problem Statement
 
 Biomedical AI systems struggle with:
@@ -360,96 +394,58 @@ Example output:
 
 ---
 
-# Datasets
+# Datasets & Ingestion Pipeline
+
+## Knowledge Base Metrics
+* **Canonical Entities**: Exactly **61,949 standard canonical concepts** are imported into the vector database and lookup indices.
+* **Lookup Aliases**: Exactly **275,179 unique alias-to-identifier mappings** (synonyms, symbols, and historical names) are loaded to handle linguistic and spelling variations.
 
 ## 1. HGNC (Genes)
+* **Description**: Human Gene Nomenclature Committee database providing approved symbols and aliases for human genes.
+* **Coverage**: **45,030 genes** cataloged with official symbols, previous symbols, and synonyms.
+* **Website**: [https://www.genenames.org/](https://www.genenames.org/)
 
-Official human gene naming authority.
+## 2. MeSH (Diseases)
+* **Description**: Medical Subject Headings database managed by the National Library of Medicine (NLM) to catalog diseases and conditions.
+* **Coverage**: **6,960 disease terms** and descriptors containing structured synonyms and hierarchical mappings.
+* **Website**: [https://www.nlm.nih.gov/mesh/](https://www.nlm.nih.gov/mesh/)
 
-Contains:
-- approved gene symbols
-- aliases
-- previous names
-- identifiers
-
-Examples:
-
-- EGFR
-- TP53
-- KRAS
-
-Website:
-
-https://www.genenames.org/
+## 3. RxNorm (Medications/Drugs)
+* **Description**: Standardized nomenclature for clinical drugs, providing links to active drug ingredients and synonyms.
+* **Coverage**: **9,959 unique clinical drug concepts** (ingredients and brand formulations).
+* **Website**: [https://www.nlm.nih.gov/research/umls/rxnorm/](https://www.nlm.nih.gov/research/umls/rxnorm/)
 
 ---
 
-## 2. MONDO (Diseases)
-
-Disease ontology database.
-
-Contains:
-- disease names
-- synonyms
-- ontology IDs
-- relationships
-
-Examples:
-- NSCLC
-- melanoma
-- lung adenocarcinoma
-
-Website:
-
-https://mondo.monarchinitiative.org/
+## Data Ingestion Pipeline
+The ingestion subsystem automatically retrieves, cleanses, and transforms raw biomedical datasets into structured indices:
+1. **Download & Extraction**: Downloads custom raw datasets directly from official sources (HGNC FTP, RxNorm/MeSH UMLS tables) and loads them into memory.
+2. **Preprocessing & Alias Extraction**: Extracts approved canonical names, identifiers (e.g., `HGNC:3236`, `MESH:D008175`), and builds an exploded synonym-alias dictionary mapping all possible alternate labels.
+3. **Structured Storage**: Outputs clean parquet files inside `data/processed/` (`hgnc.parquet`, `mesh.parquet`, `rxnorm.parquet`) to act as the primary lookup tables.
+4. **Vector Embedding Selection**: Encodes each canonical entity along with its synonyms using the specialized `GGPTR/SapBERT-from-PubMedBERT-keyphrase` model.
+5. **Qdrant Vector Storage**: Populates a local/cloud Qdrant collection with 768-dimensional dense vectors to power semantic candidate retrieval.
 
 ---
 
-## 3. ClinVar (Variants)
-
-Variant database.
-
-Contains:
-- genomic variants
-- HGVS notation
-- variant aliases
-- submissions
-
-Examples:
-- Ex19del
-- T790M
-- G12C
-
-Website:
-
-https://www.ncbi.nlm.nih.gov/clinvar/
-
----
-
-## 4. CIViC (Optional)
-
-Clinical interpretation database.
-
-Used mainly for validation and future integration.
-
-Website:
-
-https://civicdb.org/
-
----
 
 # Tech Stack
 
-| Layer | Tool |
-|------|------|
-| Language | Python |
-| Backend API | FastAPI |
-| UI | Streamlit |
-| Matching | RapidFuzz |
-| Vector DB | ChromaDB |
-| NLP | spaCy |
-| Data Processing | Pandas |
-| Containerization | Docker |
+| Layer | Tool / Framework | Description |
+|---|---|---|
+| **Language** | Python 3.13 | Core backend language |
+| **Package & Env Manager** | `uv` | Fast and modern package manager |
+| **Agent Loop** | Pydantic AI | Structured AI agents and reasoning loops |
+| **Backend API** | FastAPI | High-performance asynchronous API endpoints |
+| **User Interfaces** | Streamlit | Dual interfaces: Clinical Chat App & Curation Dashboard |
+| **Clinical NLP / NER** | SciSpacy (`en_core_sci_sm`) | Extraction of biomedical entity mentions |
+| **Fuzzy Matching** | RapidFuzz | Lexical string distance calculations |
+| **Lexical Search** | BM25 (`RankBM25`) | Lexical search over synonyms |
+| **Vector Database** | Qdrant | Dense vector index for hybrid candidate retrieval |
+| **Biomedical Embeddings** | SapBERT (`PubMedBERT` keyphrase) | Specialized vector representations for clinical concepts |
+| **Model Optimization** | ONNX Runtime | Accelerated embedding and ranking model execution |
+| **Telemetry & Tracing** | Pydantic Logfire | Developer-grade OpenTelemetry LLM trace inspection |
+| **Database Storage** | SQLite / PostgreSQL | Storage for telemetry, curation, and alerts |
+| **Testing** | pytest | Robust unit and integration test suite |
 
 ---
 
@@ -704,6 +700,88 @@ Tracks predicted confidence vs. actual classification accuracy:
 
 ---
 
+# Real-Time Monitoring & Observability
+
+To support clinical deployments, the system features a production-grade observability pipeline located in `src/monitoring/` that tracks latency, cost, and accuracy, detecting model drift and facilitating clinician-in-the-loop expert corrections.
+
+## 1. Observability Architecture
+The monitoring stack consists of three layers:
+1. **End-to-End Tracing (OpenTelemetry)**: Captures request journeys across multiple stages (NER, Retrieval, Ranking, and LLM reasoning) using standard OTEL Spans.
+2. **Persistent SQL Telemetry Store (SQLite)**: Records raw metrics, resolved concepts, triggered alerts, and clinician feedback inside `data/monitoring.db`.
+3. **Interactive Observability Dashboard (Streamlit)**: Visualizes real-time performance, system alerts, cost metrics, and provides an expert review interface to correct classifications.
+
+## 2. Telemetry Schema & Logs
+All request metrics are persisted to the SQLite telemetry database (`data/monitoring.db`) across four main tables:
+*   `requests_log`: High-level execution logs tracking timestamp, user query, total latency, LLM input/output tokens, estimated cost, status, and API routes.
+*   `resolved_entities_log`: Granular records of each extracted entity, its ontology classification, standard identifier, confidence score, and review status.
+*   `feedback_log`: Closed-loop expert corrections containing correct mappings and clinical notes.
+*   `alerts_log`: Proactive alerts warning administrators of system regressions.
+
+## 3. Real-Time Alerting Engine
+The alerting system automatically scans incoming requests and raises warnings under three conditions:
+1. **High Latency Warning**: Raised if any query takes longer than `2500ms`.
+2. **Low Confidence Warning**: Raised if the system resolves an entity with confidence `< 0.80`.
+3. **Daily Spend Threshold**: Alerts administrators if daily LLM costs exceed `$5.00`.
+
+## 4. Custom Clinical Curation Dashboard (Non-Technical Admins)
+To launch the real-time Streamlit curation and monitoring dashboard:
+```bash
+make run-dashboard
+```
+This runs the dashboard on port `8502`. It is tailored for clinical administrators, medical curators, and non-technical stakeholders to inspect system outcomes, resolve system alerts, and provide Human-in-the-Loop corrections:
+
+*   **System Health**: Visualizes request volume, average latency, and active confidence-drift warnings.
+    ![System Health Overview](reports/dashboard-reports/sys-health.png)
+*   **AI Performance**: Tracks token costs, usage over time, and time spent in each processing pipeline step.
+    ![AI Performance](reports/dashboard-reports/llm-performance.png)
+*   **Biomedical Analytics**: Details standard identifier distribution, top search queries, and ontology frequencies.
+    ![Biomedical Analytics](reports/dashboard-reports/bio-analysis.png)
+*   **System Alerts**: Lists triggers for latency regressions, budget overruns, and low confidence resolutions.
+    ![System Alerts](reports/dashboard-reports/sys-alert2.png)
+*   **Human-in-the-Loop Review**: Lets clinical curators verify, edit, and approve low-confidence resolutions.
+    ![Human-in-the-Loop Review](reports/dashboard-reports/hil.png)
+
+## 5. Technical Observability & Developer Tracing (Pydantic Logfire)
+For developers, data engineers, and AI model validators seeking low-level insights (collapsible OpenTelemetry spans, model prompt structures, database parameters, and strict execution graphs), the project integrates **Pydantic Logfire**:
+
+1. **Authenticate with Logfire**:
+   ```bash
+   make logfire-auth
+   ```
+2. **Setup/Link Repository**:
+   ```bash
+   make logfire-setup
+   ```
+3. **List Linked Projects**:
+   ```bash
+   make logfire-projects
+   ```
+4. **Launch Developer Console**:
+   Navigate to **[https://logfire.pydantic.dev/](https://logfire.pydantic.dev/)** to monitor step-by-step tracing live.
+   ![Developer Traces on Pydantic Logfire](reports/dashboard-reports/logfire001.png)
+
+---
+
+# Dual-Architecture Motivation & Role in AI Precision Medicine Platform
+
+### Motivation Behind the Dual Architecture
+This system implements a **dual-architecture pattern** consisting of a simple resolution pipeline route and a complex LLM agent route:
+1. **Simple Resolution Pipeline Route**: Used for direct, high-throughput queries (e.g., standardizing list elements in a clinical database). It bypasses heavy agent planning steps, using SciSpacy and hybrid vector search to retrieve and rank entities in `<250ms` with deterministic efficiency.
+2. **Complex LLM Agent Route**: Utilizes Pydantic AI for semantic reasoning, pronoun resolution (e.g., "compare it with Tylenol"), entity comparison, and structured clinical report generation.
+
+By separating these paths, the system optimizes response latency and limits token costs while preserving advanced reasoning capabilities for complex patient cases.
+
+### Integrating with the AI Precision Medicine Platform
+Collaboratively developed by a team of four, this **Biomedical Entity Resolution Assistant** serves as the **core semantic translation API** for the wider **AI Precision Medicine Platform**. The platform consists of four downstream agentic microservices:
+*   **Variant Evidence Assistant**: Standardizes mutation mentions (e.g., "Ex19del") to fetch verified clinical trial findings.
+*   **Therapeutic Strategy Assistant**: Maps drug aliases (e.g., "Tylenol" to "Acetaminophen") to cross-reference drug interactions.
+*   **Clinical Trial Matching Assistant**: Matches standardized disease names (e.g., "NSCLC" to "Non-Small Cell Lung Cancer") with open study inclusion criteria.
+*   **Biomarker Assistant**: Resolves gene names (e.g., "HER1" to "EGFR") to suggest therapeutic targets.
+
+By providing unified, canonical standard outputs (identifiers, standard ontology labels) via a shared FastAPI endpoint, this assistant prevents data mismatch bugs across all downstream systems.
+
+---
+
 # Development Roadmap
 
 ## Phase 1 — Core Resolver (MVP)
@@ -738,19 +816,6 @@ Tracks predicted confidence vs. actual classification accuracy:
 - biomedical RAG integration
 - knowledge graph support
 - clinical workflow integration
-
----
-
-# Role in AI Precision Medicine Platform
-
-This project serves as a foundational service for:
-
-- Variant Evidence Assistant
-- Therapeutic Strategy Assistant
-- Clinical Trial Matching Assistant
-- Biomarker Assistant
-
-It ensures all downstream systems operate on standardized biomedical entities.
 
 ---
 
