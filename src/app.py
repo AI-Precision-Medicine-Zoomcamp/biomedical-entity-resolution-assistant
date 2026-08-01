@@ -353,9 +353,9 @@ with st.sidebar:
     
     # Determine the Dashboard URL dynamically
     dashboard_url = os.getenv("DASHBOARD_URL")
-    if not dashboard_url:
-        is_prod = os.getenv("STREAMLIT_SHARING_MODE") is not None
-        dashboard_url = "https://biodashboard.streamlit.app/" if is_prod else "http://localhost:8502"
+    # if not dashboard_url:
+    #     is_prod = os.getenv("STREAMLIT_SHARING_MODE") is not None
+    #     dashboard_url = "https://biodashboard.streamlit.app/" if is_prod else "http://localhost:8502"
         
     st.markdown(f"<a href='{dashboard_url}' target='_blank' style='font-size: 12px; color: #10a37f; text-decoration: none; padding-left: 5px;'>🏥 Open Monitoring Dashboard</a>", unsafe_allow_html=True)
 
