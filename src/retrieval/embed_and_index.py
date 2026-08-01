@@ -144,7 +144,10 @@ def load_canonical_entities() -> pd.DataFrame:
     for f in files:
         path = processed_dir / f
         if path.exists():
-            df = pd.read_parquet(path)
+            df = pd.read_parquet(
+                path,
+                columns=["identifier", "canonical_name", "description", "synonyms", "entity_type", "source"]
+            )
             # Filter out excluded identifiers
             df = df[~df["identifier"].isin(EXCLUDED_IDENTIFIERS)]
             dfs.append(df)
@@ -203,25 +206,22 @@ def run_indexing_pipeline(limit: int = None):
     print(f"[Pipeline] Loading embedding model: '{MODEL_HF_ID}' (device selection is automated)...")
     model = BiomedicalEmbedder(MODEL_HF_ID)
     
-    # 4. Prepare text inputs to embed
-    # Format: Canonical Name + Synonyms + Description
-    print("[Pipeline] Structuring text for embedding...")
-    texts = []
-    for row in entities_df.itertuples(index=False):
-        synonyms_str = row.synonyms if pd.notna(row.synonyms) and row.synonyms else "None"
-        desc_str = row.description if pd.notna(row.description) and row.description else "No description"
-        text = f"Concept: {row.canonical_name}. Synonyms: {synonyms_str.replace('|', ', ')}. Description: {desc_str}."
-        texts.append(text)
-        
-    entities_df["text_to_embed"] = texts
-    
-    # 5. Generate embeddings and upsert in batches
+    # 4. Generate embeddings and upsert in batches
     batch_size = 256
     print(f"[Pipeline] Embedding and indexing in batches of {batch_size}...")
     
+    import gc
+    
     for i in tqdm(range(0, total_entities, batch_size), desc="Indexing Progress"):
         batch_df = entities_df.iloc[i : i + batch_size]
-        batch_texts = batch_df["text_to_embed"].tolist()
+        
+        # Build batch texts dynamically to save RAM
+        batch_texts = []
+        for row in batch_df.itertuples(index=False):
+            synonyms_str = row.synonyms if pd.notna(row.synonyms) and row.synonyms else "None"
+            desc_str = row.description if pd.notna(row.description) and row.description else "No description"
+            text = f"Concept: {row.canonical_name}. Synonyms: {synonyms_str.replace('|', ', ')}. Description: {desc_str}."
+            batch_texts.append(text)
         
         # Generate embeddings
         embeddings = model.embed_texts(batch_texts, batch_size=batch_size, show_progress_bar=False)
@@ -251,6 +251,12 @@ def run_indexing_pipeline(limit: int = None):
             wait=False,
             points=points
         )
+        
+        # Run explicit garbage collection to clear memory buffers from this batch
+        del batch_texts
+        del embeddings
+        del points
+        gc.collect()
         
     print(f"\n[Pipeline] Successfully indexed {total_entities} entities into Qdrant!")
     print("=" * 60)
