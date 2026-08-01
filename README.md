@@ -394,96 +394,58 @@ Example output:
 
 ---
 
-# Datasets
+# Datasets & Ingestion Pipeline
+
+## Knowledge Base Metrics
+* **Canonical Entities**: Exactly **61,949 standard canonical concepts** are imported into the vector database and lookup indices.
+* **Lookup Aliases**: Exactly **275,179 unique alias-to-identifier mappings** (synonyms, symbols, and historical names) are loaded to handle linguistic and spelling variations.
 
 ## 1. HGNC (Genes)
+* **Description**: Human Gene Nomenclature Committee database providing approved symbols and aliases for human genes.
+* **Coverage**: **45,030 genes** cataloged with official symbols, previous symbols, and synonyms.
+* **Website**: [https://www.genenames.org/](https://www.genenames.org/)
 
-Official human gene naming authority.
+## 2. MeSH (Diseases)
+* **Description**: Medical Subject Headings database managed by the National Library of Medicine (NLM) to catalog diseases and conditions.
+* **Coverage**: **6,960 disease terms** and descriptors containing structured synonyms and hierarchical mappings.
+* **Website**: [https://www.nlm.nih.gov/mesh/](https://www.nlm.nih.gov/mesh/)
 
-Contains:
-- approved gene symbols
-- aliases
-- previous names
-- identifiers
-
-Examples:
-
-- EGFR
-- TP53
-- KRAS
-
-Website:
-
-https://www.genenames.org/
+## 3. RxNorm (Medications/Drugs)
+* **Description**: Standardized nomenclature for clinical drugs, providing links to active drug ingredients and synonyms.
+* **Coverage**: **9,959 unique clinical drug concepts** (ingredients and brand formulations).
+* **Website**: [https://www.nlm.nih.gov/research/umls/rxnorm/](https://www.nlm.nih.gov/research/umls/rxnorm/)
 
 ---
 
-## 2. MONDO (Diseases)
-
-Disease ontology database.
-
-Contains:
-- disease names
-- synonyms
-- ontology IDs
-- relationships
-
-Examples:
-- NSCLC
-- melanoma
-- lung adenocarcinoma
-
-Website:
-
-https://mondo.monarchinitiative.org/
+## Data Ingestion Pipeline
+The ingestion subsystem automatically retrieves, cleanses, and transforms raw biomedical datasets into structured indices:
+1. **Download & Extraction**: Downloads custom raw datasets directly from official sources (HGNC FTP, RxNorm/MeSH UMLS tables) and loads them into memory.
+2. **Preprocessing & Alias Extraction**: Extracts approved canonical names, identifiers (e.g., `HGNC:3236`, `MESH:D008175`), and builds an exploded synonym-alias dictionary mapping all possible alternate labels.
+3. **Structured Storage**: Outputs clean parquet files inside `data/processed/` (`hgnc.parquet`, `mesh.parquet`, `rxnorm.parquet`) to act as the primary lookup tables.
+4. **Vector Embedding Selection**: Encodes each canonical entity along with its synonyms using the specialized `GGPTR/SapBERT-from-PubMedBERT-keyphrase` model.
+5. **Qdrant Vector Storage**: Populates a local/cloud Qdrant collection with 768-dimensional dense vectors to power semantic candidate retrieval.
 
 ---
 
-## 3. ClinVar (Variants)
-
-Variant database.
-
-Contains:
-- genomic variants
-- HGVS notation
-- variant aliases
-- submissions
-
-Examples:
-- Ex19del
-- T790M
-- G12C
-
-Website:
-
-https://www.ncbi.nlm.nih.gov/clinvar/
-
----
-
-## 4. CIViC (Optional)
-
-Clinical interpretation database.
-
-Used mainly for validation and future integration.
-
-Website:
-
-https://civicdb.org/
-
----
 
 # Tech Stack
 
-| Layer | Tool |
-|------|------|
-| Language | Python |
-| Backend API | FastAPI |
-| UI | Streamlit |
-| Matching | RapidFuzz |
-| Vector DB | ChromaDB |
-| NLP | spaCy |
-| Data Processing | Pandas |
-| Containerization | Docker |
+| Layer | Tool / Framework | Description |
+|---|---|---|
+| **Language** | Python 3.13 | Core backend language |
+| **Package & Env Manager** | `uv` | Fast and modern package manager |
+| **Agent Loop** | Pydantic AI | Structured AI agents and reasoning loops |
+| **Backend API** | FastAPI | High-performance asynchronous API endpoints |
+| **User Interfaces** | Streamlit | Dual interfaces: Clinical Chat App & Curation Dashboard |
+| **Clinical NLP / NER** | SciSpacy (`en_core_sci_sm`) | Extraction of biomedical entity mentions |
+| **Fuzzy Matching** | RapidFuzz | Lexical string distance calculations |
+| **Lexical Search** | BM25 (`RankBM25`) | Lexical search over synonyms |
+| **Vector Database** | Qdrant | Dense vector index for hybrid candidate retrieval |
+| **Biomedical Embeddings** | SapBERT (`PubMedBERT` keyphrase) | Specialized vector representations for clinical concepts |
+| **Model Optimization** | ONNX Runtime | Accelerated embedding and ranking model execution |
+| **Telemetry & Tracing** | Pydantic Logfire | Developer-grade OpenTelemetry LLM trace inspection |
+| **Database Storage** | SQLite / PostgreSQL | Storage for telemetry, curation, and alerts |
+| **Testing** | pytest | Robust unit and integration test suite |
 
 ---
 
@@ -820,50 +782,6 @@ By providing unified, canonical standard outputs (identifiers, standard ontology
 
 ---
 
-# Deployment on Streamlit Cloud
-
-To host both the **Clinical Chat App** (`src/app.py`) and the **Observability Dashboard** (`src/monitoring/dashboards.py`) in production using Streamlit Cloud, follow these steps:
-
-### 1. Repository Setup & Dependencies
-* Ensure all files are pushed to a public GitHub repository (Streamlit Cloud integrates directly with GitHub).
-* The dependencies are configured using `pyproject.toml` and lock files. Streamlit Cloud will automatically detect these and install packages like `pydantic-ai`, `qdrant-client`, `logfire`, etc.
-
-### 2. Live Database Hosting
-Since SQLite (`data/monitoring.db`) is ephemeral on Streamlit Cloud containers, you must transition to a cloud-hosted relational database for production telemetry:
-* Provision a free PostgreSQL database (e.g., on Neon, Supabase, or AWS RDS).
-* Update `src/monitoring/metrics.py` to connect via the PostgreSQL URI when the environment variable `DATABASE_URL` is present.
-* Run migration tables on the live database.
-
-### 3. Deploying the Chat Agent (`src/app.py`)
-1. Sign in to [Streamlit Share](https://share.streamlit.io/).
-2. Click **New app**.
-3. Select your repository, the `main` branch, and set the Main file path to:
-   ```text
-   src/app.py
-   ```
-4. Click **Advanced settings...** and add your environment variables in the **Secrets** section:
-   ```toml
-   GROQ_API_KEY = "your-groq-api-key"
-   OPENAI_API_KEY = "your-openai-key"
-   QDRANT_API_KEY = "your-qdrant-key"
-   QDRANT_URL = "your-qdrant-cluster-url"
-   LOGFIRE_TOKEN = "your-logfire-write-token"
-   DATABASE_URL = "postgresql://user:pass@host:port/dbname"
-   ```
-5. Click **Deploy**.
-
-### 4. Deploying the Observability Dashboard (`src/monitoring/dashboards.py`)
-1. Create a second Streamlit app on your account.
-2. Select the same repository and branch.
-3. Set the Main file path to:
-   ```text
-   src/monitoring/dashboards.py
-   ```
-4. Go to **Advanced settings...** -> **Secrets** and paste the **same** credentials (specifically `DATABASE_URL` so it reads telemetry logs in real time).
-5. Click **Deploy**.
-
----
-
 # Development Roadmap
 
 ## Phase 1 — Core Resolver (MVP)
@@ -898,19 +816,6 @@ Since SQLite (`data/monitoring.db`) is ephemeral on Streamlit Cloud containers, 
 - biomedical RAG integration
 - knowledge graph support
 - clinical workflow integration
-
----
-
-# Role in AI Precision Medicine Platform
-
-This project serves as a foundational service for:
-
-- Variant Evidence Assistant
-- Therapeutic Strategy Assistant
-- Clinical Trial Matching Assistant
-- Biomarker Assistant
-
-It ensures all downstream systems operate on standardized biomedical entities.
 
 ---
 
