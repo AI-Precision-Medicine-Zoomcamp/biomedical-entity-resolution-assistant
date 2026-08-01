@@ -11,6 +11,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+from dotenv import load_dotenv
+load_dotenv(PROJECT_ROOT / ".env")
+
 from src.embeddings.embedder import BiomedicalEmbedder
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
@@ -29,7 +32,7 @@ except Exception:
 EMBEDDING_MODEL_NAME = config.get("embedding", {}).get("model", "sapbert")
 # Map 'sapbert' alias to actual Hugging Face model path
 if EMBEDDING_MODEL_NAME == "sapbert":
-    MODEL_HF_ID = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext"
+    MODEL_HF_ID = "Xenova/SapBERT-from-PubMedBERT-fulltext"
 else:
     MODEL_HF_ID = EMBEDDING_MODEL_NAME
 
@@ -45,14 +48,27 @@ def get_deterministic_uuid(entity_id: str) -> str:
 
 def get_qdrant_client() -> QdrantClient:
     """
-    Attempts to connect to a local running Qdrant server.
-    If it's not running, falls back to a persistent local SQLite/file-backed database.
+    Attempts to connect to a Qdrant server (cloud via QDRANT_URL or local via QDRANT_HOST/QDRANT_PORT).
+    If it's not running/available, falls back to a persistent local SQLite/file-backed database.
     If the local database is locked by another instance, falls back to in-memory mode.
     Caches the client instance to avoid multiple concurrent locks on local disk.
     """
     global _qdrant_client_instance
     if _qdrant_client_instance is not None:
         return _qdrant_client_instance
+
+    url = os.getenv("QDRANT_URL")
+    api_key = os.getenv("QDRANT_API_KEY")
+
+    if url:
+        try:
+            print(f"[Qdrant] Connecting to instance at {url}...")
+            _qdrant_client_instance = QdrantClient(url=url, api_key=api_key, timeout=60.0)
+            # Verify connectivity
+            _qdrant_client_instance.get_collections()
+            return _qdrant_client_instance
+        except Exception as e:
+            print(f"[Qdrant] Cloud/URL connection failed ({e}). Falling back to local modes.")
 
     host = os.getenv("QDRANT_HOST", "localhost")
     port = int(os.getenv("QDRANT_PORT", 6333))
@@ -128,7 +144,10 @@ def load_canonical_entities() -> pd.DataFrame:
     for f in files:
         path = processed_dir / f
         if path.exists():
-            df = pd.read_parquet(path)
+            df = pd.read_parquet(
+                path,
+                columns=["identifier", "canonical_name", "description", "synonyms", "entity_type", "source"]
+            )
             # Filter out excluded identifiers
             df = df[~df["identifier"].isin(EXCLUDED_IDENTIFIERS)]
             dfs.append(df)
@@ -187,25 +206,22 @@ def run_indexing_pipeline(limit: int = None):
     print(f"[Pipeline] Loading embedding model: '{MODEL_HF_ID}' (device selection is automated)...")
     model = BiomedicalEmbedder(MODEL_HF_ID)
     
-    # 4. Prepare text inputs to embed
-    # Format: Canonical Name + Synonyms + Description
-    print("[Pipeline] Structuring text for embedding...")
-    texts = []
-    for row in entities_df.itertuples(index=False):
-        synonyms_str = row.synonyms if pd.notna(row.synonyms) and row.synonyms else "None"
-        desc_str = row.description if pd.notna(row.description) and row.description else "No description"
-        text = f"Concept: {row.canonical_name}. Synonyms: {synonyms_str.replace('|', ', ')}. Description: {desc_str}."
-        texts.append(text)
-        
-    entities_df["text_to_embed"] = texts
-    
-    # 5. Generate embeddings and upsert in batches
+    # 4. Generate embeddings and upsert in batches
     batch_size = 256
     print(f"[Pipeline] Embedding and indexing in batches of {batch_size}...")
     
+    import gc
+    
     for i in tqdm(range(0, total_entities, batch_size), desc="Indexing Progress"):
         batch_df = entities_df.iloc[i : i + batch_size]
-        batch_texts = batch_df["text_to_embed"].tolist()
+        
+        # Build batch texts dynamically to save RAM
+        batch_texts = []
+        for row in batch_df.itertuples(index=False):
+            synonyms_str = row.synonyms if pd.notna(row.synonyms) and row.synonyms else "None"
+            desc_str = row.description if pd.notna(row.description) and row.description else "No description"
+            text = f"Concept: {row.canonical_name}. Synonyms: {synonyms_str.replace('|', ', ')}. Description: {desc_str}."
+            batch_texts.append(text)
         
         # Generate embeddings
         embeddings = model.embed_texts(batch_texts, batch_size=batch_size, show_progress_bar=False)
@@ -235,6 +251,12 @@ def run_indexing_pipeline(limit: int = None):
             wait=False,
             points=points
         )
+        
+        # Run explicit garbage collection to clear memory buffers from this batch
+        del batch_texts
+        del embeddings
+        del points
+        gc.collect()
         
     print(f"\n[Pipeline] Successfully indexed {total_entities} entities into Qdrant!")
     print("=" * 60)

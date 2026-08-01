@@ -1,3 +1,4 @@
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -349,7 +350,14 @@ with st.sidebar:
         
     st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
     st.markdown("<p style='font-size: 11px; font-weight: 600; color: #666; margin-left: 5px; text-transform: uppercase;'>Observability</p>", unsafe_allow_html=True)
-    st.markdown("<a href='http://localhost:8502' target='_blank' style='font-size: 12px; color: #10a37f; text-decoration: none; padding-left: 5px;'>🏥 Open Monitoring Dashboard</a>", unsafe_allow_html=True)
+    
+    # Determine the Dashboard URL dynamically
+    dashboard_url = os.getenv("DASHBOARD_URL")
+    # if not dashboard_url:
+    #     is_prod = os.getenv("STREAMLIT_SHARING_MODE") is not None
+    #     dashboard_url = "https://biodashboard.streamlit.app/" if is_prod else "http://localhost:8502"
+        
+    st.markdown(f"<a href='{dashboard_url}' target='_blank' style='font-size: 12px; color: #10a37f; text-decoration: none; padding-left: 5px;'>🏥 Open Monitoring Dashboard</a>", unsafe_allow_html=True)
 
 # 5. Top Navigation Selector
 col_left, col_right = st.columns([8, 2])
