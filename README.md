@@ -201,7 +201,7 @@ These belong to other projects in the AI Precision Medicine platform.
 
 ---
 
-# System Architecture
+# Detailed Resolution Process
 
 ```text
 User Query
@@ -263,17 +263,18 @@ Preprocessing includes:
 ## 3. Entity Detection
 
 Determine whether input refers to:
-
-- Gene
-- Disease
-- Variant
+* Gene
+* Disease
+* Medication
+* Variant
 
 Examples:
 
 | Input | Entity Type |
-|------|-------------|
+|-------|-------------|
 | EGFR | Gene |
 | NSCLC | Disease |
+| Gefitinib | Medication |
 | Ex19del | Variant |
 
 ---
@@ -816,6 +817,39 @@ By providing unified, canonical standard outputs (identifiers, standard ontology
 - biomedical RAG integration
 - knowledge graph support
 - clinical workflow integration
+
+---
+
+# Project Documentation
+
+For quick navigation across this documentation, use the links below:
+
+* [Overview](#overview)
+* [System Architecture](#system-architecture)
+* [Problem Statement](#problem-statement)
+* [Project Goal](#project-goal)
+* [Scope & Limitations](#scope)
+* [Out of Scope](#out-of-scope)
+* [Core Features](#core-features)
+* [Detailed Resolution Process](#detailed-resolution-process)
+  * [1. Query Input](#1-query-input)
+  * [2. Query Preprocessing](#2-query-preprocessing)
+  * [3. Entity Detection](#3-entity-detection)
+  * [4. Candidate Retrieval](#4-candidate-retrieval)
+  * [5. Matching Engine](#5-matching-engine)
+  * [6. Confidence Scoring](#6-confidence-scoring)
+  * [7. Response Generation](#7-response-generation)
+* [Datasets & Ingestion Pipeline](#datasets--ingestion-pipeline)
+* [Tech Stack](#tech-stack)
+* [Repository Structure](#repository-structure)
+* [Installation & Setup](#installation--setup)
+* [Running the Project](#running-the-project)
+* [Testing & Verification](#testing--verification)
+* [Evaluation, Benchmarking & Results](#evaluation-benchmarking--results)
+* [Real-Time Monitoring & Observability](#real-time-monitoring--observability)
+* [Dual-Architecture Motivation & Platform Role](#dual-architecture-motivation--role-in-ai-precision-medicine-platform)
+* [Development Roadmap](#development-roadmap)
+* [Future Improvements](#future-improvements)
 
 ---
 
