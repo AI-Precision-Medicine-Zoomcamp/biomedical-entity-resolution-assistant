@@ -111,13 +111,13 @@ class BiomedicalEmbedder:
         model_path = PROJECT_ROOT / "models" / model_name
         self.embedder = ONNXEmbedder(model_path)
 
-    def embed_texts(self, texts: List[str], batch_size: int = 256, show_progress_bar: bool = False) -> np.ndarray:
+    def embed_texts(self, texts: List[str], batch_size: int = 256, max_length: int = 128, show_progress_bar: bool = False) -> np.ndarray:
         if not texts:
             return np.array([], dtype=np.float32)
         # Process in batches
         all_embeddings = []
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
-            embeddings = self.embedder.encode_batch(batch)
+            embeddings = self.embedder.encode_batch(batch, max_length=max_length)
             all_embeddings.append(embeddings)
         return np.vstack(all_embeddings)
