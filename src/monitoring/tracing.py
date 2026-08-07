@@ -13,7 +13,8 @@ def get_tracer():
         # Initialize and configure Logfire
         logfire.configure(
             service_name="biomedical-entity-resolution-assistant",
-            service_version="0.1.0"
+            service_version="0.1.0",
+            send_to_logfire="if-token-present"
         )
         
         # We also get the tracer via standard OpenTelemetry
