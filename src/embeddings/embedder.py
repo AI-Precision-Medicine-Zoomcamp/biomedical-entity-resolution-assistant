@@ -33,11 +33,25 @@ class ONNXEmbedder:
             onnx_file = model_path / "onnx" / "model.onnx"
 
         if not tokenizer_file.exists() or not onnx_file.exists():
-            raise FileNotFoundError(
-                f"Model files not found in {model_path}. "
-                f"Expected tokenizer.json and model.onnx (or onnx/model.onnx). "
-                f"Please run model downloading step: 'make download-models' or 'python src/embeddings/download_model.py'."
-            )
+            print(f"[ONNXEmbedder] Model files not found in {model_path}. Attempting to download automatically...")
+            try:
+                from src.embeddings.download_model import download_onnx_model
+                try:
+                    repo_id = str(model_path.relative_to(PROJECT_ROOT / "models"))
+                except ValueError:
+                    repo_id = MODEL_HF_ID
+                download_onnx_model(repo_id=repo_id, out_dir="models")
+            except Exception as download_error:
+                raise FileNotFoundError(
+                    f"Model files not found in {model_path} and auto-download failed: {download_error}. "
+                    f"Please run model downloading step: 'make download-models' or 'python src/embeddings/download_model.py'."
+                ) from download_error
+
+            # Recheck after download
+            tokenizer_file = model_path / "tokenizer.json"
+            onnx_file = model_path / "model.onnx"
+            if not onnx_file.exists():
+                onnx_file = model_path / "onnx" / "model.onnx"
 
         self.tokenizer = Tokenizer.from_file(str(tokenizer_file))
         self.session = ort.InferenceSession(
