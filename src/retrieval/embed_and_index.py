@@ -63,7 +63,7 @@ def get_qdrant_client() -> QdrantClient:
     if url:
         try:
             print(f"[Qdrant] Connecting to instance at {url}...")
-            _qdrant_client_instance = QdrantClient(url=url, api_key=api_key, timeout=60.0)
+            _qdrant_client_instance = QdrantClient(url=url, api_key=api_key, timeout=300.0)
             # Verify connectivity
             _qdrant_client_instance.get_collections()
             return _qdrant_client_instance
@@ -207,7 +207,7 @@ def run_indexing_pipeline(limit: int = None):
     model = BiomedicalEmbedder(MODEL_HF_ID)
     
     # 4. Generate embeddings and upsert in batches
-    batch_size = 256
+    batch_size = 64
     print(f"[Pipeline] Embedding and indexing in batches of {batch_size}...")
     
     import gc

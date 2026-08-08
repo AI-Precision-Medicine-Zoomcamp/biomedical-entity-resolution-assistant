@@ -14,6 +14,7 @@ data/ontology_cache/
 chroma_db/
 data/raw/
 data/processed/
+!data/processed/normalized_lookup.parquet
 *.csv
 *.json
 *.parquet

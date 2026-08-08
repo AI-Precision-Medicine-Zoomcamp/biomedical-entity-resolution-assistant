@@ -1,6 +1,10 @@
 # Biomedical Entity Resolution Assistant
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://biomedical-entity-resolution-assistant.streamlit.app/)
+
 A Precision Medicine AI assistant for resolving **biomedical entities** (genes, diseases, and genomic variants) into **canonical standardized representations** using biomedical ontologies and trusted datasets.
+
+**Live Application URL:** [https://biomedical-entity-resolution-assistant.streamlit.app/](https://biomedical-entity-resolution-assistant.streamlit.app/)
 
 ---
 
