@@ -34,14 +34,14 @@ def get_pydantic_ai_model():
     Initializes appropriate Pydantic AI model based on environment config.
     """
     if os.getenv("GROQ_API_KEY"):
-        return "groq:llama-3.3-70b-versatile"
+        return "groq:groq/compound-mini"
     # elif os.getenv("GEMINI_API_KEY"):
     #     return "gemini-1.5-flash"
     # elif os.getenv("OPENAI_API_KEY"):
     #     return "openai:gpt-4o-mini"
     # else:
     #     # Default to Groq model string (will raise missing key error at runtime)
-    #     return "groq:llama-3.3-70b-versatile"
+    #     return "groq:groq/compound-mini"
 
 model = get_pydantic_ai_model()
 
